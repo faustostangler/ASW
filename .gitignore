@@ -75,3 +75,4 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+tree.txt
