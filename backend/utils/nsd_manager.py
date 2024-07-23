@@ -1,8 +1,8 @@
 import sqlite3
 import pandas as pd
 
-from utils import system_utils
-from config import settings as setup
+from utils import system
+from config import settings
 
 def load_all_nsds(db_name):
     """
@@ -21,7 +21,7 @@ def load_all_nsds(db_name):
         conn.close()
         return nsd_df['nsd'].tolist()
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return []
 
 def generate_missing_nsds(all_nsds):
@@ -41,18 +41,18 @@ def generate_missing_nsds(all_nsds):
         missing_nsds = sorted(list(full_set - existing_set))
         return missing_nsds
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return []
 
-def manage_nsd(db_name = 'nsd.db'):
+def manage_nsd(db_name = 'b3.db'):
     all_nsds = load_all_nsds(db_name)
     negative_nsds = generate_missing_nsds(all_nsds)
 
 # Example usage
 if __name__ == "__main__":
     try:
-        db_name = 'nsd.db'
+        db_name = 'b3.db'
         manage_nsd(db_name)
-        print(f"Negative NSD numbers: {negative_nsds}")
+        print(f"Negative NSD numbers: {missing_nsds}")
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)

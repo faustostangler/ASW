@@ -5,8 +5,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
-from utils import system_utils
-from config import settings as setup
+from utils import system
+from config import settings
 
 def get_nsds_from_db(db_name, nsd_type):
     """
@@ -26,7 +26,7 @@ def get_nsds_from_db(db_name, nsd_type):
         conn.close()
         return nsd_df['nsd'].tolist()
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return []
 
 def scrape_financial_table(driver, wait, nsd):
@@ -78,7 +78,7 @@ def main_scrape_process(driver, wait):
     - nsd_type (str): The NSD type to filter.
     """
     try:
-        db_name='nsd.db'
+        db_name='b3.db'
         nsd_type='INFORMACOES TRIMESTRAIS'
 
         existing_nsds = get_nsds_from_db(db_name, nsd_type)

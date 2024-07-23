@@ -6,11 +6,11 @@ scripts_path = Path(__file__).resolve().parent / 'scripts'
 sys.path.append(str(scripts_path))
 
 # Import the combined module
-from config import settings as setup
+from config import settings
 from utils import selenium_driver as drv
 from utils import nsd_scrap as nsd
 from utils import nsd_manager as mgr
-from utils import system_utils
+from utils import system
 from utils import fintastix
 
 
@@ -20,11 +20,11 @@ if __name__ == "__main__":
         driver, wait = drv.get_driver()
 
         # Start scraping
-        db_name = 'nsd.db'
+        db_name = 'b3.db'
 
-        # missing_nsds = mgr.manage_nsd(db_name)
-
-        nsd.nsd_scrape(driver, wait)
+        nsd_new_values, nsd_missing_values = nsd.generate_nsd_list('b3.db')
+        nsd.nsd_scrape(driver, wait, nsd_new_values)
+        nsd.nsd_scrape(driver, wait, nsd_missing_values)
         
 
         # fintastix.main_scrape_process(driver, wait)
@@ -34,4 +34,4 @@ if __name__ == "__main__":
 
         print('done')
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)

@@ -12,8 +12,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 
-from utils import system_utils
-from config import settings as setup
+from utils import system
+from config import settings
 
 def get_chromedriver_path():
     """
@@ -43,7 +43,7 @@ def get_chromedriver_path():
         chromedriver_path = download_and_extract_chromedriver(chromedriver_url, path)
         return chromedriver_path
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return None
 
 def get_chrome_version():
@@ -63,7 +63,7 @@ def get_chrome_version():
         version = re.search(r'\d+\.\d+\.\d+\.\d+', output.decode('utf-8')).group(0)
         return version
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return None
 
 def get_chromedriver_url(version):
@@ -86,7 +86,7 @@ def get_chromedriver_url(version):
             print(f"Error obtaining ChromeDriver for version {version}")
             return None
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return None
 
 def download_and_extract_chromedriver(url, dest_folder):
@@ -118,7 +118,7 @@ def download_and_extract_chromedriver(url, dest_folder):
         chromedriver_path = dest_folder / 'chromedriver-win64' / 'chromedriver.exe'
         return str(chromedriver_path.resolve())
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return None
 
 def load_driver(chromedriver_path):
@@ -138,6 +138,8 @@ def load_driver(chromedriver_path):
         # Uncomment the following line to run Chrome in headless mode
         # chrome_options.add_argument("--headless")
         chrome_options.add_argument('start-maximized')  # Maximize the window on startup.
+        chrome_options.add_argument("--ignore-certificate-errors")
+        chrome_options.add_argument("--log-level=ALL")
 
         # Create and return a new instance of the Chrome WebDriver
         driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
@@ -146,11 +148,11 @@ def load_driver(chromedriver_path):
         exceptions_ignore = (NoSuchElementException, StaleElementReferenceException)
         
         # Create a WebDriverWait instance for the driver, using the specified wait time and exceptions to ignore.
-        wait = WebDriverWait(driver, setup.driver_wait_time, ignored_exceptions=exceptions_ignore)
+        wait = WebDriverWait(driver, settings.driver_wait_time, ignored_exceptions=exceptions_ignore)
 
         return driver, wait
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return None, None
 
 def get_driver():
@@ -171,7 +173,7 @@ def get_driver():
         driver, wait = load_driver(chromedriver_path)
         return driver, wait
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)
         return None, None
 
 if __name__ == "__main__":
@@ -179,4 +181,4 @@ if __name__ == "__main__":
         # Get the WebDriver instance when running the script directly
         driver = get_driver()
     except Exception as e:
-        system_utils.log_error(e)
+        system.log_error(e)

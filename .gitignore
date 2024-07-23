@@ -76,3 +76,9 @@ share/python-wheels/
 *.egg
 MANIFEST
 tree.txt
+
+# Database files
+*.db
+
+# Binary directories
+bin/
