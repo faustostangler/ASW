@@ -40,7 +40,7 @@ def winbeep(frequency=5000, duration=50):
     winsound.Beep(frequency, duration)
     return True
 
-def print_info(i, start, end, data, start_time, size):
+def print_info(i, start, end, extra_info, start_time, size):
     """
     Prints the provided information along with progress and remaining time.
 
@@ -48,7 +48,7 @@ def print_info(i, start, end, data, start_time, size):
     - i (int): The current nsd value.
     - start (int): The start value of the current batch.
     - end (int): The end value of the current batch.
-    - data (tuple): The extracted data tuple containing multiple values.
+    - extra_info (list): The extracted extra_info containing multiple values.
     - start_time (float): The start time of the process.
     - size (int): The total number of items to process.
     """
@@ -80,11 +80,11 @@ def print_info(i, start, end, data, start_time, size):
         f'{percentage:.2%} '
         f'{counter}+{remaining_items}, '
         f'{avg_time_per_item:.6f}s per item, '
-        f'Remaining: {remaining_time_formatted} '
+        f'Remaining: {remaining_time_formatted}'
     )
     
     # Print the information
-    extra_info = " ".join(map(str, data))
+    extra_info = " ".join(map(str, extra_info))
     print(f"{progress} {extra_info}")
     
     winbeep()

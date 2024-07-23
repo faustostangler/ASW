@@ -2,6 +2,8 @@ import time
 
 import sqlite3
 import pandas as pd
+import os
+import shutil
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
@@ -19,7 +21,8 @@ def parse_data(driver, wait, i):
         data['nsd'] = i
 
         company_element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="lblNomeCompanhia"]')))
-        data['company'] = system.clean_text(company_element.text)
+        company_text = system.clean_text(company_element.text)
+        data['company'] = re.sub(settings.words_to_remove, '', company_text)
 
         dri_element = driver.find_element(By.XPATH, '//*[@id="lblNomeDRI"]')
         data['dri'] = system.clean_text(dri_element.text.split('-')[0].strip())
@@ -58,6 +61,15 @@ def save_to_db(data, db_name='b3.db'):
     try:
         if not data:
             return
+
+        # backup
+        base_name, ext = os.path.splitext(db_name)
+        backup_name = f"{base_name} backup{ext}"
+        db_path = os.path.join(settings.database_folder, db_name)
+        backup_path = os.path.join(settings.database_folder, backup_name)
+        shutil.copy2(db_path, backup_path)
+
+        # conn
         conn = sqlite3.connect(f'{settings.database_folder}/{db_name}') 
         cursor = conn.cursor()
 
@@ -172,11 +184,11 @@ def nsd_scrape(driver, wait, nsd_list):
 
             if data:
                 all_data.append(data)
-                data_tuple = (data['sent_date'], data['nsd_type'], data['date'], data['company'])
+                extra_info = [nsd, data['sent_date'], data['nsd_type'], data['date'], data['company']]
             else:
-                data_tuple = ('', '', '', '')
+                extra_info = []
 
-            system.print_info(i, nsd_list[0], nsd_list[-1], data_tuple, start_time, size)
+            system.print_info(i, nsd_list[0], nsd_list[-1], extra_info, start_time, size)
 
             if (i + 1) % settings.batch_size == 0 or i == size - 1:
                 save_to_db(all_data, db_name)
