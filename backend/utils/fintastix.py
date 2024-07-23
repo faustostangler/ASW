@@ -20,8 +20,8 @@ def get_nsds_from_db(db_name, nsd_type):
     list: A list of NSD numbers.
     """
     try:
-        conn = sqlite3.connect(db_name)
-        query = f"SELECT nsd FROM nsd" # WHERE nsd_type='{nsd_type}'"
+        conn = sqlite3.connect(f'{settings.database_folder}/{db_name}')
+        query = f"SELECT nsd FROM nsd"
         nsd_df = pd.read_sql_query(query, conn)
         conn.close()
         return nsd_df['nsd'].tolist()

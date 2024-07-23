@@ -9,7 +9,8 @@ from selenium.webdriver.common.by import By
 import re
 from datetime import datetime, timedelta
 
-import utils.system as system
+from utils import system
+from utils import selenium_driver as drv
 from config import settings
 
 def parse_data(driver, wait, i):
@@ -57,19 +58,19 @@ def save_to_db(data, db_name='b3.db'):
     try:
         if not data:
             return
-        conn = sqlite3.connect(db_name)
+        conn = sqlite3.connect(f'{settings.database_folder}/{db_name}') 
         cursor = conn.cursor()
 
         cursor.execute('''CREATE TABLE IF NOT EXISTS nsd
                         (nsd INTEGER PRIMARY KEY, company TEXT, dri TEXT, nsd_type TEXT, version INTEGER, auditor TEXT,
-                        auditor_rt TEXT, protocolo TEXT, date TEXT, sent_date TEXT, reason TEXT)''')
+                        auditor_rt TEXT, protocolo TEXT, quarter TEXT, sent_date TEXT, reason TEXT)''')
 
         for item in data:
-            date_str = item['date'].isoformat() if item['date'] else None
+            quarter_str = item['date'].isoformat() if item['date'] else None
             sent_date_str = item['sent_date'].isoformat() if item['sent_date'] else None
 
             cursor.execute('''INSERT INTO nsd 
-                            (nsd, company, dri, nsd_type, version, auditor, auditor_rt, protocolo, date, sent_date, reason) 
+                            (nsd, company, dri, nsd_type, version, auditor, auditor_rt, protocolo, quarter, sent_date, reason) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             ON CONFLICT(nsd) DO UPDATE SET
                             company = excluded.company,
@@ -79,13 +80,13 @@ def save_to_db(data, db_name='b3.db'):
                             auditor = excluded.auditor,
                             auditor_rt = excluded.auditor_rt,
                             protocolo = excluded.protocolo,
-                            date = excluded.date,
+                            quarter = excluded.quarter,
                             sent_date = excluded.sent_date,
                             reason = excluded.reason
                             WHERE excluded.sent_date > nsd.sent_date''', 
                             (item['nsd'], item['company'], item['dri'], item['nsd_type'], item['version'], 
                             item['auditor'], item['auditor_rt'], item['protocolo'], 
-                            date_str, sent_date_str, item['reason']))
+                            quarter_str, sent_date_str, item['reason']))
 
         conn.commit()
         conn.close()
@@ -105,8 +106,8 @@ def generate_nsd_list(db_name):
     tuple: A tuple with two elements:
            - A list of new nsd numbers generated based on date difference.
            - A list of missing nsd values from the database.
-    """
-    conn = sqlite3.connect(db_name)
+    """ 
+    conn = sqlite3.connect(f'{settings.database_folder}/{db_name}')
     cursor = conn.cursor()
 
     # Fetch the nsd data
@@ -185,8 +186,14 @@ def nsd_scrape(driver, wait, nsd_list):
     except Exception as e:
         system.log_error(e)
 
+def scrape_nsd_values(driver, wait, db_name='b3.db'):
+    nsd_new_values, nsd_missing_values = generate_nsd_list(db_name)
+    nsd_scrape(driver, wait, nsd_new_values)
+    nsd_scrape(driver, wait, nsd_missing_values)
+    
 if __name__ == "__main__":
-    from utils import selenium_driver as drv
     driver, wait = drv.get_driver()
-    nsd_scrape(driver, wait, nsd_list)
+
+    scrape_nsd_values('b3.db')
+
     driver.quit()

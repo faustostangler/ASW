@@ -9,7 +9,6 @@ sys.path.append(str(scripts_path))
 from config import settings
 from utils import selenium_driver as drv
 from utils import nsd_scrap as nsd
-from utils import nsd_manager as mgr
 from utils import system
 from utils import fintastix
 
@@ -19,15 +18,8 @@ if __name__ == "__main__":
         # Initialize the Selenium WebDriver
         driver, wait = drv.get_driver()
 
-        # Start scraping
-        db_name = 'b3.db'
-
-        nsd_new_values, nsd_missing_values = nsd.generate_nsd_list('b3.db')
-        nsd.nsd_scrape(driver, wait, nsd_new_values)
-        nsd.nsd_scrape(driver, wait, nsd_missing_values)
-        
-
-        # fintastix.main_scrape_process(driver, wait)
+        # NSD values scraping
+        nsd.scrape_nsd_values(driver, wait, 'b3.db')
 
         # Close the browser window
         driver.quit()

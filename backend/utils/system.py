@@ -7,6 +7,7 @@ import re
 import sqlite3
 import pandas as pd
 
+from config import settings
 
 def log_error(e):
     """
@@ -90,7 +91,7 @@ def print_info(i, start, end, data, start_time, size):
 
 def get_db_schema(db_name):
     """Retrieve schema information for all objects (tables, indexes, views, triggers) in the SQLite database."""
-    conn = sqlite3.connect(db_name)
+    conn = sqlite3.connect(f'{settings.database_folder}/{db_name}')
     cursor = conn.cursor()
     
     # Define a function to get schema information for tables
@@ -151,7 +152,7 @@ def get_db_schema(db_name):
 
 def load_database(db_name):
     """Load each table from the SQLite database into its own DataFrame."""
-    conn = sqlite3.connect(db_name)
+    conn = sqlite3.connect(f'{settings.database_folder}/{db_name}')
     
     # Define a function to get table names
     def get_table_names():
