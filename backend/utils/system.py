@@ -6,6 +6,9 @@ import unidecode
 import re
 import sqlite3
 import pandas as pd
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
 
 from config import settings
 
@@ -25,6 +28,138 @@ def clean_text(text):
     except Exception as e:
         log_error(e)
     return text
+
+def text(xpath, wait):
+    """
+    Finds and retrieves text from a web element using the provided xpath and wait object.
+    
+    Args:
+    xpath (str): The xpath of the element to retrieve text from.
+    wait (WebDriverWait): The wait object to use for finding the element.
+    
+    Returns:
+    str: The text of the element, or an empty string if an exception occurs.
+    """
+    try:
+        # Wait until the element is clickable, then retrieve its text.
+        element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        text = element.text
+        
+        return text
+    except Exception as e:
+        # If an exception occurs, print the error message (if needed) and return an empty string.
+        # print('wText', e)
+        return ''
+
+def click(xpath, wait):
+    """
+    Finds and clicks on a web element using the provided xpath and wait object.
+    
+    Args:
+    xpath (str): The xpath of the element to click.
+    wait (WebDriverWait): The wait object to use for finding the element.
+    
+    Returns:
+    bool: True if the element was found and clicked, False otherwise.
+    """
+    try:
+        # Wait until the element is clickable, then click it.
+        element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        element.click()
+        return True
+    except Exception as e:
+        # If an exception occurs, print the error message (if needed) and return False.
+        # print('wClick', e)
+        return False
+
+def choose(xpath, driver, wait):
+    """
+    Finds and selects a web element using the provided xpath and wait object.
+    
+    Args:
+    xpath (str): The xpath of the element to select.
+    driver (webdriver.Chrome): The Chrome driver object to use for selecting the element.
+    wait (WebDriverWait): The wait object to use for finding the element.
+    
+    Returns:
+    int: The value of the selected option, or an empty string if an exception occurs.
+    """
+    try:
+        while True:
+            try:
+                element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+                break
+            except Exception as e:
+                time.sleep(settings.wait_time)  # Wait for 1 second and try again
+        element.click()
+        
+        # Get the Select object for the element, find the maximum option value, and select it.
+        select = Select(driver.find_element(By.XPATH, xpath))
+        options = [int(x.text) for x in select.options]
+        batch = str(max(options))
+        select.select_by_value(batch)
+        
+        return int(batch)
+    except Exception as e:
+        # If an exception occurs, print the error message (if needed) and return an empty string.
+        # print('wSelect', e)
+        return ''
+   
+def send_keys(xpath, driver, wait):
+    """
+    Finds and sends keys to a web element using the provided xpath and wait object.
+    
+    Args:
+    xpath (str): The xpath of the element to send keys to.
+    keyword (str): The keyword to send to the element.
+    wait (WebDriverWait): The wait object to use for finding the element.
+    
+    Returns:
+    str: The keyword that was sent to the element, or an empty string if an exception occurs.
+    """
+    try:
+        # Wait until the element is clickable, then send the keyword to it.
+        input_element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        input_element.send_keys(keyword)
+        
+        return keyword
+    except Exception as e:
+        # If an exception occurs, print the error message (if needed) and return an empty string.
+        # print('wSendKeys', e)
+        return ''
+
+def link(xpath, wait, EC, By):
+    """
+    Finds and retrieves the href attribute of a web element using the provided xpath and wait object.
+    
+    Args:
+        xpath (str): The xpath of the web element.
+        wait (WebDriverWait): The wait object used to wait for the web element to be clickable.
+        EC: The ExpectedConditions module used to check the expected conditions of the web element.
+        By: The By module used to find the web element.
+        
+    Returns:
+        href (str): The href attribute of the web element.
+        '' (str): An empty string if the web element is not found or an exception occurs.
+    """
+    try:
+        element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        href = element.get_attribute('href')
+        return href
+    except Exception as e:
+        # print('wLink', e)
+        return ''
+
+def raw_text(xpath, wait):
+  try:
+    # Wait until the element is clickable, then retrieve its text.
+    element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+    raw_code = element.get_attribute("innerHTML")
+    return raw_code
+  except Exception as e:
+    # If an exception occurs, print the error message (if needed) and return an empty string.
+    # print('wText', e)
+    return ''
 
 def winbeep(frequency=5000, duration=50):
     """

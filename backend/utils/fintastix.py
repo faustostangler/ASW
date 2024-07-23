@@ -29,7 +29,7 @@ def get_nsds_from_db(db_name, nsd_type):
         system.log_error(e)
         return []
 
-def scrape_financial_table(driver, wait, nsd):
+def scrape_financial_table(driver, driver_wait, nsd):
     """
     Scrapes the financial table from the iframe within the given NSD page.
     
@@ -46,11 +46,11 @@ def scrape_financial_table(driver, wait, nsd):
     
     try:
         # Switch to iframe
-        iframe = wait.until(EC.presence_of_element_located((By.TAG_NAME, 'iframe')))
+        iframe = driver_wait.until(EC.presence_of_element_located((By.TAG_NAME, 'iframe')))
         driver.switch_to.frame(iframe)
         
         # Locate the table
-        table = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="ctl00_cphPopUp_tbDados"]')))
+        table = driver_wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="ctl00_cphPopUp_tbDados"]')))
         rows = table.find_elements(By.TAG_NAME, 'tr')
         
         data = []
@@ -67,7 +67,7 @@ def scrape_financial_table(driver, wait, nsd):
         print(f"Error scraping NSD {nsd}: {e}")
         return pd.DataFrame()
 
-def main_scrape_process(driver, wait):
+def main_scrape_process(driver, driver_wait):
     """
     Main process to scrape financial tables for the given NSD type and save new data.
     
@@ -85,12 +85,12 @@ def main_scrape_process(driver, wait):
         all_nsds = set(existing_nsds)
         
         # Fetch new NSDs from some source, here assumed to be fetched previously
-        nsd.nsd_scrape(driver, wait)
+        nsd.nsd_scrape(driver, driver_wait)
         new_nsds = []  # Replace with actual method to fetch new NSDs
         
         for nsd in new_nsds:
             if nsd not in all_nsds:
-                df = scrape_financial_table(driver, wait, nsd)
+                df = scrape_financial_table(driver, driver_wait, nsd)
                 if not df.empty:
                     print(f"Scraped data for NSD {nsd}:")
                     print(df.head())

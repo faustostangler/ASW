@@ -12,15 +12,15 @@ import re
 from datetime import datetime, timedelta
 
 from utils import system
-from utils import selenium_driver as drv
+from utils import selenium_driver
 from config import settings
 
-def parse_data(driver, wait, i):
+def parse_data(driver, driver_wait, i):
     data = {}
     try:
         data['nsd'] = i
 
-        company_element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="lblNomeCompanhia"]')))
+        company_element = driver_wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="lblNomeCompanhia"]')))
         company_text = system.clean_text(company_element.text)
         data['company'] = re.sub(settings.words_to_remove, '', company_text)
 
@@ -169,7 +169,7 @@ def generate_nsd_list(db_name):
     
     return nsd_new_values, nsd_missing_values
 
-def nsd_scrape(driver, wait, nsd_list):
+def nsd_scrape(driver, driver_wait, nsd_list):
     try:
         db_name = 'b3.db'
         all_data = []
@@ -180,7 +180,7 @@ def nsd_scrape(driver, wait, nsd_list):
             url = f"https://www.rad.cvm.gov.br/ENET/frmGerenciaPaginaFRE.aspx?NumeroSequencialDocumento={nsd}&CodigoTipoInstituicao=1"
             driver.get(url)
 
-            data = parse_data(driver, wait, nsd)
+            data = parse_data(driver, driver_wait, nsd)
 
             if data:
                 all_data.append(data)
@@ -198,13 +198,13 @@ def nsd_scrape(driver, wait, nsd_list):
     except Exception as e:
         system.log_error(e)
 
-def scrape_nsd_values(driver, wait, db_name='b3.db'):
+def scrape_nsd_values(driver, driver_wait, db_name='b3.db'):
     nsd_new_values, nsd_missing_values = generate_nsd_list(db_name)
-    nsd_scrape(driver, wait, nsd_new_values)
-    nsd_scrape(driver, wait, nsd_missing_values)
+    nsd_scrape(driver, driver_wait, nsd_new_values)
+    nsd_scrape(driver, driver_wait, nsd_missing_values)
     
 if __name__ == "__main__":
-    driver, wait = drv.get_driver()
+    driver, driver_wait = selenium_driver.get_driver()
 
     scrape_nsd_values('b3.db')
 

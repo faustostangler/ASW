@@ -148,9 +148,9 @@ def load_driver(chromedriver_path):
         exceptions_ignore = (NoSuchElementException, StaleElementReferenceException)
         
         # Create a WebDriverWait instance for the driver, using the specified wait time and exceptions to ignore.
-        wait = WebDriverWait(driver, settings.driver_wait_time, ignored_exceptions=exceptions_ignore)
+        driver_wait = WebDriverWait(driver, settings.wait_time, ignored_exceptions=exceptions_ignore)
 
-        return driver, wait
+        return driver, driver_wait
     except Exception as e:
         system.log_error(e)
         return None, None
@@ -170,8 +170,8 @@ def get_driver():
         # chromedriver_path = get_chromedriver_path()
         
         # Load and return the Chrome WebDriver
-        driver, wait = load_driver(chromedriver_path)
-        return driver, wait
+        driver, driver_wait = load_driver(chromedriver_path)
+        return driver, driver_wait
     except Exception as e:
         system.log_error(e)
         return None, None

@@ -7,23 +7,28 @@ sys.path.append(str(scripts_path))
 
 # Import the combined module
 from config import settings
-from utils import selenium_driver as drv
-from utils import nsd_scrap as nsd
+from utils import selenium_driver
+from utils import nsd_scrap
+from utils import company_scrap
 from utils import system
 from utils import fintastix
-
 
 if __name__ == "__main__":
     try:
         # Initialize the Selenium WebDriver
-        driver, wait = drv.get_driver()
+        driver, driver_wait = selenium_driver.get_driver()
+
+        # companies info scraping
+        raw_code = company_scrap.get_raw_code(driver, driver_wait, settings.companies_url)
+        company_tickers = company_scrap.get_company_ticker(raw_code)
 
         # NSD values scraping
-        nsd.scrape_nsd_values(driver, wait, 'b3.db')
+        nsd_scrap.scrape_nsd_values(driver, driver_wait, 'b3.db')
 
         # Close the browser window
         driver.quit()
 
-        print('done')
     except Exception as e:
         system.log_error(e)
+
+    print('end')
