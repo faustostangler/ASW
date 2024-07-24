@@ -18,17 +18,20 @@ if __name__ == "__main__":
         # Initialize the Selenium WebDriver
         driver, driver_wait = selenium_driver.get_driver()
 
-        # companies info scraping
+        # Scrape company information
         raw_code = company_scrap.get_raw_code(driver, driver_wait, settings.companies_url)
         company_tickers = company_scrap.get_company_ticker(raw_code)
+        company_info = company_scrap.get_company_info(driver, driver_wait, company_tickers)
 
-        # NSD values scraping
-        nsd_scrap.scrape_nsd_values(driver, driver_wait, 'b3.db')
+        # Scrape NSD values
+        nsd_scrap.scrape_nsd_values(driver, driver_wait, settings.db_name)
 
         # Close the browser window
         driver.quit()
 
     except Exception as e:
+        # Log any exceptions that occur during execution
         system.log_error(e)
 
+    # Print end message
     print('end')

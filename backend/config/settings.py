@@ -1,22 +1,28 @@
 import re
 
-# system wide
-batch_size = 50
-database_folder = 'backend/data'
+# System-wide settings
+batch_size = 50  # Batch size for data processing
+db_name = 'b3.db'  # Database name
+database_folder = 'backend/data'  # Folder where the database is stored
 
-# selenium 
-wait_time = 2 # 5
-driver = driver_wait = None
+# Selenium settings
+wait_time = 2  # Wait time for Selenium operations
+driver = driver_wait = None  # Placeholders for Selenium driver and wait objects
 
-# b3 info
-companies_url = "https://sistemaswebb3-listados.b3.com.br/listedCompaniesPage/search?language=pt-br"
+# B3 information
+companies_url = "https://sistemaswebb3-listados.b3.com.br/listedCompaniesPage/search?language=pt-br"  # URL for the B3 companies search page
+company_url = "https://sistemaswebb3-listados.b3.com.br/listedCompaniesPage/?language=pt-br"  # URL for the B3 company detail page
 
+# List of judicial terms to be removed from company names
 judicial = [
     '  EM LIQUIDACAO', ' EM LIQUIDACAO', ' EXTRAJUDICIAL', 
     '  EM RECUPERACAO JUDICIAL', '  EM REC JUDICIAL', 
-    ' EM RECUPERACAO JUDICIAL', ' EM LIQUIDACAO EXTRAJUDICIAL'
+    ' EM RECUPERACAO JUDICIAL', ' EM LIQUIDACAO EXTRAJUDICIAL', ' EMPRESA FALIDA', 
 ]
+# Regular expression pattern to remove judicial terms from company names
 words_to_remove = '|'.join(map(re.escape, judicial))
+
+# Dictionary mapping governance level abbreviations to their full descriptions
 governance_levels = {
     "NM": "Cia. Novo Mercado",
     "N1": "Cia. Nível 1 de Governança Corporativa",

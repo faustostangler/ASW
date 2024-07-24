@@ -9,6 +9,7 @@ import pandas as pd
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from config import settings
 
@@ -22,6 +23,15 @@ def log_error(e):
     print(f"Error in {inspect.currentframe().f_back.f_code.co_name}: {e}")
 
 def clean_text(text):
+    """
+    Cleans and normalizes the input text by removing punctuation, converting to uppercase, and stripping whitespace.
+    
+    Parameters:
+    - text (str): The input text to be cleaned.
+
+    Returns:
+    str: The cleaned and normalized text.
+    """
     try:
         text = unidecode.unidecode(text).translate(str.maketrans('', '', string.punctuation)).upper().strip()
         text = re.sub(r'\s+', ' ', text)
@@ -29,68 +39,60 @@ def clean_text(text):
         log_error(e)
     return text
 
-def text(xpath, wait):
+def text(xpath, driver_wait):
     """
     Finds and retrieves text from a web element using the provided xpath and wait object.
     
-    Args:
-    xpath (str): The xpath of the element to retrieve text from.
-    wait (WebDriverWait): The wait object to use for finding the element.
+    Parameters:
+    - xpath (str): The xpath of the element to retrieve text from.
+    - driver_wait (WebDriverWait): The wait object to use for finding the element.
     
     Returns:
     str: The text of the element, or an empty string if an exception occurs.
     """
     try:
-        # Wait until the element is clickable, then retrieve its text.
-        element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        # Wait until the element is present, then retrieve its text.
+        element = wait_forever(driver_wait, xpath)
         text = element.text
-        
         return text
     except Exception as e:
-        # If an exception occurs, print the error message (if needed) and return an empty string.
-        # print('wText', e)
+        log_error(e)
         return ''
 
-def click(xpath, wait):
+def click(xpath, driver_wait):
     """
     Finds and clicks on a web element using the provided xpath and wait object.
     
-    Args:
-    xpath (str): The xpath of the element to click.
-    wait (WebDriverWait): The wait object to use for finding the element.
+    Parameters:
+    - xpath (str): The xpath of the element to click.
+    - driver_wait (WebDriverWait): The wait object to use for finding the element.
     
     Returns:
     bool: True if the element was found and clicked, False otherwise.
     """
     try:
         # Wait until the element is clickable, then click it.
-        element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        element = wait_forever(driver_wait, xpath)
         element.click()
         return True
     except Exception as e:
-        # If an exception occurs, print the error message (if needed) and return False.
-        # print('wClick', e)
+        log_error(e)
         return False
 
-def choose(xpath, driver, wait):
+def choose(xpath, driver, driver_wait):
     """
     Finds and selects a web element using the provided xpath and wait object.
     
-    Args:
-    xpath (str): The xpath of the element to select.
-    driver (webdriver.Chrome): The Chrome driver object to use for selecting the element.
-    wait (WebDriverWait): The wait object to use for finding the element.
+    Parameters:
+    - xpath (str): The xpath of the element to select.
+    - driver (webdriver.Chrome): The Chrome driver object to use for selecting the element.
+    - driver_wait (WebDriverWait): The wait object to use for finding the element.
     
     Returns:
     int: The value of the selected option, or an empty string if an exception occurs.
     """
     try:
-        while True:
-            try:
-                element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
-                break
-            except Exception as e:
-                time.sleep(settings.wait_time)  # Wait for 1 second and try again
+        element = wait_forever(driver_wait, xpath)
         element.click()
         
         # Get the Select object for the element, find the maximum option value, and select it.
@@ -101,76 +103,100 @@ def choose(xpath, driver, wait):
         
         return int(batch)
     except Exception as e:
-        # If an exception occurs, print the error message (if needed) and return an empty string.
-        # print('wSelect', e)
+        log_error(e)
         return ''
    
-def send_keys(xpath, driver, wait):
+def send_keys(xpath, driver, driver_wait, keyword):
     """
     Finds and sends keys to a web element using the provided xpath and wait object.
     
-    Args:
-    xpath (str): The xpath of the element to send keys to.
-    keyword (str): The keyword to send to the element.
-    wait (WebDriverWait): The wait object to use for finding the element.
+    Parameters:
+    - xpath (str): The xpath of the element to send keys to.
+    - driver (webdriver.Chrome): The Chrome driver object to use.
+    - driver_wait (WebDriverWait): The wait object to use for finding the element.
+    - keyword (str): The keyword to send to the element.
     
     Returns:
-    str: The keyword that was sent to the element, or an empty string if an exception occurs.
+    WebElement: The web element after sending the keys, or None if an exception occurs.
     """
     try:
         # Wait until the element is clickable, then send the keyword to it.
-        input_element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
-        input_element.send_keys(keyword)
-        
-        return keyword
+        element = wait_forever(driver_wait, xpath)
+        element.send_keys(keyword)
+        return element
     except Exception as e:
-        # If an exception occurs, print the error message (if needed) and return an empty string.
-        # print('wSendKeys', e)
-        return ''
+        log_error(e)
+        return None
 
-def link(xpath, wait, EC, By):
+def wait_forever(driver_wait, xpath):
+    """
+    Waits indefinitely until the web element located by the given xpath is found.
+    
+    Parameters:
+    - driver_wait (WebDriverWait): The wait object to use.
+    - xpath (str): The xpath of the element to wait for.
+    
+    Returns:
+    WebElement: The found web element.
+    """
+    while True:
+        try:
+            element = driver_wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+            break
+        except Exception as e:
+            log_error(e)
+            time.sleep(settings.wait_time)  # Wait for a specified time and try again
+    return element
+
+def link(xpath, driver_wait):
     """
     Finds and retrieves the href attribute of a web element using the provided xpath and wait object.
     
-    Args:
-        xpath (str): The xpath of the web element.
-        wait (WebDriverWait): The wait object used to wait for the web element to be clickable.
-        EC: The ExpectedConditions module used to check the expected conditions of the web element.
-        By: The By module used to find the web element.
-        
+    Parameters:
+    - xpath (str): The xpath of the web element.
+    - driver_wait (WebDriverWait): The wait object to use.
+    
     Returns:
-        href (str): The href attribute of the web element.
-        '' (str): An empty string if the web element is not found or an exception occurs.
+    str: The href attribute of the web element, or an empty string if an exception occurs.
     """
     try:
-        element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        element = wait_forever(driver_wait, xpath)
         href = element.get_attribute('href')
         return href
     except Exception as e:
-        # print('wLink', e)
+        log_error(e)
         return ''
 
-def raw_text(xpath, wait):
-  try:
-    # Wait until the element is clickable, then retrieve its text.
-    element = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
-    raw_code = element.get_attribute("innerHTML")
-    return raw_code
-  except Exception as e:
-    # If an exception occurs, print the error message (if needed) and return an empty string.
-    # print('wText', e)
-    return ''
+def raw_text(xpath, driver_wait):
+    """
+    Finds and retrieves the raw HTML text from a web element using the provided xpath and wait object.
+    
+    Parameters:
+    - xpath (str): The xpath of the element to retrieve text from.
+    - driver_wait (WebDriverWait): The wait object to use for finding the element.
+    
+    Returns:
+    str: The raw HTML text of the element, or an empty string if an exception occurs.
+    """
+    try:
+        # Wait until the element is present, then retrieve its innerHTML.
+        element = wait_forever(driver_wait, xpath)
+        raw_code = element.get_attribute("innerHTML")
+        return raw_code
+    except Exception as e:
+        log_error(e)
+        return ''
 
 def winbeep(frequency=5000, duration=50):
     """
-    Generate a system beep sound with the specified frequency and duration.
+    Generates a system beep sound with the specified frequency and duration.
 
-    Args:
-        frequency (int): The frequency of the beep sound in Hertz (default is 5000 Hz).
-        duration (int): The duration of the beep sound in milliseconds (default is 50 ms).
+    Parameters:
+    - frequency (int): The frequency of the beep sound in Hertz (default is 5000 Hz).
+    - duration (int): The duration of the beep sound in milliseconds (default is 50 ms).
 
     Returns:
-        bool: True if the beep was successful, False otherwise.
+    bool: True if the beep was successful, False otherwise.
     """
     winsound.Beep(frequency, duration)
     return True
@@ -180,10 +206,10 @@ def print_info(i, start, end, extra_info, start_time, size):
     Prints the provided information along with progress and remaining time.
 
     Parameters:
-    - i (int): The current nsd value.
+    - i (int): The current item index.
     - start (int): The start value of the current batch.
     - end (int): The end value of the current batch.
-    - extra_info (list): The extracted extra_info containing multiple values.
+    - extra_info (list): The extracted extra information containing multiple values.
     - start_time (float): The start time of the process.
     - size (int): The total number of items to process.
     """
@@ -225,30 +251,70 @@ def print_info(i, start, end, extra_info, start_time, size):
     winbeep()
 
 def get_db_schema(db_name):
-    """Retrieve schema information for all objects (tables, indexes, views, triggers) in the SQLite database."""
+    """
+    Retrieve schema information for all objects (tables, indexes, views, triggers) in the SQLite database.
+    
+    Parameters:
+    - db_name (str): The name of the SQLite database file.
+
+    Returns:
+    dict: A dictionary containing schema information for tables, indexes, views, and triggers.
+    """
     conn = sqlite3.connect(f'{settings.database_folder}/{db_name}')
     cursor = conn.cursor()
     
-    # Define a function to get schema information for tables
     def get_table_schema(table_name):
+        """
+        Retrieves schema information for a table.
+        
+        Parameters:
+        - table_name (str): The name of the table.
+
+        Returns:
+        DataFrame: A DataFrame containing the schema information of the table.
+        """
         cursor.execute(f"PRAGMA table_info({table_name});")
         schema = cursor.fetchall()
         return pd.DataFrame(schema, columns=['Column ID', 'Column Name', 'Data Type', 'Not Null', 'Default Value', 'Primary Key'])
     
-    # Define a function to get schema information for indexes
     def get_index_schema(index_name):
+        """
+        Retrieves schema information for an index.
+        
+        Parameters:
+        - index_name (str): The name of the index.
+
+        Returns:
+        DataFrame: A DataFrame containing the schema information of the index.
+        """
         cursor.execute(f"PRAGMA index_info({index_name});")
         schema = cursor.fetchall()
         return pd.DataFrame(schema, columns=['Column ID', 'Column Name', 'Sort Order'])
     
-    # Define a function to get schema information for views
     def get_view_schema(view_name):
+        """
+        Retrieves schema information for a view.
+        
+        Parameters:
+        - view_name (str): The name of the view.
+
+        Returns:
+        DataFrame: A DataFrame containing the SQL of the view.
+        """
         cursor.execute(f"SELECT sql FROM sqlite_master WHERE type='view' AND name='{view_name}';")
         schema = cursor.fetchone()
         return pd.DataFrame([schema], columns=['View SQL'])
     
-    # Define a function to get schema information for triggers
     def get_trigger_schema(trigger_name):
+        """
+        Retrieves schema information for a trigger.
+        
+        Parameters:
+        - trigger_name (str): The name of the trigger.
+
+        Returns:
+        DataFrame: A DataFrame containing the SQL of the trigger.
+        """
         cursor.execute(f"SELECT sql FROM sqlite_master WHERE type='trigger' AND name='{trigger_name}';")
         schema = cursor.fetchone()
         return pd.DataFrame([schema], columns=['Trigger SQL'])
@@ -286,11 +352,24 @@ def get_db_schema(db_name):
     return schema_dict
 
 def load_database(db_name):
-    """Load each table from the SQLite database into its own DataFrame."""
+    """
+    Load each table from the SQLite database into its own DataFrame.
+    
+    Parameters:
+    - db_name (str): The name of the SQLite database file.
+
+    Returns:
+    dict: A dictionary where each key is a table name and each value is a DataFrame containing the table's data.
+    """
     conn = sqlite3.connect(f'{settings.database_folder}/{db_name}')
     
-    # Define a function to get table names
     def get_table_names():
+        """
+        Retrieves the names of all tables in the database.
+        
+        Returns:
+        list: A list of table names.
+        """
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cursor.fetchall()
@@ -310,4 +389,3 @@ def load_database(db_name):
     conn.close()
     
     return table_dfs
-

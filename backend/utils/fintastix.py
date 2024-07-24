@@ -50,7 +50,8 @@ def scrape_financial_table(driver, driver_wait, nsd):
         driver.switch_to.frame(iframe)
         
         # Locate the table
-        table = driver_wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="ctl00_cphPopUp_tbDados"]')))
+        xpath = '//*[@id="ctl00_cphPopUp_tbDados"]'
+        table = system.wait_forever(driver_wait, xpath)
         rows = table.find_elements(By.TAG_NAME, 'tr')
         
         data = []
@@ -78,7 +79,7 @@ def main_scrape_process(driver, driver_wait):
     - nsd_type (str): The NSD type to filter.
     """
     try:
-        db_name='b3.db'
+        db_name=settings.db_name
         nsd_type='INFORMACOES TRIMESTRAIS'
 
         existing_nsds = get_nsds_from_db(db_name, nsd_type)
