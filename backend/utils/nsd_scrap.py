@@ -89,13 +89,13 @@ def save_to_db(data, db_name=settings.db_name):
 
         # Backup existing database
         base_name, ext = os.path.splitext(db_name)
-        backup_name = f"{base_name}_backup{ext}"
+        backup_name = f"{base_name} backup{ext}"
         db_path = os.path.join(settings.database_folder, db_name)
         backup_path = os.path.join(settings.database_folder, backup_name)
         shutil.copy2(db_path, backup_path)
 
         # Connect to the database
-        conn = sqlite3.connect(db_path) 
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
         # Create table if it doesn't exist
@@ -111,16 +111,16 @@ def save_to_db(data, db_name=settings.db_name):
                             (nsd, company, dri, nsd_type, version, auditor, auditor_rt, protocolo, quarter, sent_date, reason) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             ON CONFLICT(nsd) DO UPDATE SET
-                            company = excluded.company,
-                            dri = excluded.dri,
-                            nsd_type = excluded.nsd_type,
-                            version = excluded.version,
-                            auditor = excluded.auditor,
-                            auditor_rt = excluded.auditor_rt,
-                            protocolo = excluded.protocolo,
-                            quarter = excluded.quarter,
-                            sent_date = excluded.sent_date,
-                            reason = excluded.reason''', 
+                            company=excluded.company,
+                            dri=excluded.dri,
+                            nsd_type=excluded.nsd_type,
+                            version=excluded.version,
+                            auditor=excluded.auditor,
+                            auditor_rt=excluded.auditor_rt,
+                            protocolo=excluded.protocolo,
+                            quarter=excluded.quarter,
+                            sent_date=excluded.sent_date,
+                            reason=excluded.reason''',
                             (item['nsd'], item['company'], item['dri'], item['nsd_type'], item['version'], 
                             item['auditor'], item['auditor_rt'], item['protocolo'], 
                             quarter_str, sent_date_str, item['reason']))
