@@ -114,7 +114,7 @@ def get_existing_companies(db_name):
     Returns:
     set: A set of company names already in the database.
     """
-    db_path = os.path.join(settings.database_folder, db_name)
+    db_path = os.path.join(settings.db_folder, db_name)
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
@@ -139,8 +139,8 @@ def save_to_db(data, db_name='company_info.db'):
         # Backup existing database
         base_name, ext = os.path.splitext(db_name)
         backup_name = f"{base_name} backup{ext}"
-        db_path = os.path.join(settings.database_folder, db_name)
-        backup_path = os.path.join(settings.database_folder, backup_name)
+        db_path = os.path.join(settings.db_folder, db_name)
+        backup_path = os.path.join(settings.db_folder, backup_name)
         if os.path.exists(db_path):
             shutil.copy2(db_path, backup_path)
 

@@ -10,21 +10,25 @@ from config import settings
 from utils import selenium_driver
 from utils import nsd_scrap
 from utils import company_scrap
+from utils import finsheet
 from utils import system
-from utils import fintastix
+from utils import finsheet
 
 if __name__ == "__main__":
     try:
         # Initialize the Selenium WebDriver
         driver, driver_wait = selenium_driver.get_driver()
 
-        # Scrape company information
-        raw_code = company_scrap.get_raw_code(driver, driver_wait, settings.companies_url)
-        company_tickers = company_scrap.get_company_ticker(raw_code)
-        company_info = company_scrap.get_company_info(driver, driver_wait, company_tickers)
+        # # Scrape company information
+        # raw_code = company_scrap.get_raw_code(driver, driver_wait, settings.companies_url)
+        # company_tickers = company_scrap.get_company_ticker(raw_code)
+        # company_info = company_scrap.get_company_info(driver, driver_wait, company_tickers)
 
         # Scrape NSD values
-        nsd_scrap.scrape_nsd_values(driver, driver_wait, settings.db_name)
+        # nsd_scrap.main(settings.db_name)
+
+        # Scrape Financial Sheets
+        nsd_list = finsheet.main()
 
         # Close the browser window
         driver.quit()

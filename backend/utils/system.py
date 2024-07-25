@@ -260,7 +260,7 @@ def get_db_schema(db_name):
     Returns:
     dict: A dictionary containing schema information for tables, indexes, views, and triggers.
     """
-    conn = sqlite3.connect(f'{settings.database_folder}/{db_name}')
+    conn = sqlite3.connect(f'{settings.db_folder}/{db_name}')
     cursor = conn.cursor()
     
     def get_table_schema(table_name):
@@ -361,7 +361,7 @@ def load_database(db_name):
     Returns:
     dict: A dictionary where each key is a table name and each value is a DataFrame containing the table's data.
     """
-    conn = sqlite3.connect(f'{settings.database_folder}/{db_name}')
+    conn = sqlite3.connect(f'{settings.db_folder}/{db_name}')
     
     def get_table_names():
         """

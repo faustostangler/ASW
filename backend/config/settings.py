@@ -3,7 +3,9 @@ import re
 # System-wide settings
 batch_size = 50  # Batch size for data processing
 db_name = 'b3.db'  # Database name
-database_folder = 'backend/data'  # Folder where the database is stored
+db_folder = 'backend/data'  # Folder where the database is stored
+db_folder_short = 'data'
+finsheet_types =  ["DEMONSTRACOES FINANCEIRAS PADRONIZADAS", "INFORMACOES TRIMESTRAIS"]
 
 # Selenium settings
 wait_time = 2  # Wait time for Selenium operations
