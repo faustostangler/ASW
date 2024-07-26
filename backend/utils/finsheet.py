@@ -182,7 +182,7 @@ def main(driver, driver_wait, finsheet=None):
             df_consolidada = pd.concat(dfc, ignore_index=True).sort_values(by='Conta')
         else:
             df_consolidada = pd.DataFrame(columns=columns)
-        print('done')
+    print('done')
 
     return df_individual[columns], df_consolidada[columns]
 

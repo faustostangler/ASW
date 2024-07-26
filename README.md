@@ -1,106 +1,74 @@
 # ASW (AssetWise)
 
-## Sobre a Companhia
+## Overview
 
-A **AssetWise (ASW)** é uma companhia dedicada a fornecer soluções inovadoras e inteligentes para a gestão de ativos financeiros. Nossa missão é capacitar indivíduos e organizações a tomar decisões financeiras informadas e eficientes, utilizando tecnologia de ponta e análise de dados avançada.
+The ASW Financial Data App is designed to automate the extraction and processing of financial data from various online sources. It retrieves detailed company information, financial documents, and standardized financial statements, storing this data in a local SQLite database for easy access and analysis.
 
-## Missão
+## Features
 
-Nossa missão é transformar a forma como os ativos financeiros são gerenciados, proporcionando ferramentas e insights que ajudam nossos clientes a alcançar seus objetivos financeiros com confiança e segurança.
+- **Company Information Scraping**: Extracts details such as ticker symbols, trading information, governance levels, CNPJ, sector classification, website, and more from the B3 (Brasil, Bolsa, Balcão) website.
+- **NSD (Document Number) Scraping**: Generates and scrapes NSD values to fetch detailed financial documents and metadata, including auditor information and document dates.
+- **Financial Sheets Scraping**: Retrieves standardized financial statements and quarterly information, processes the data, and stores it in a structured format.
 
-## Visão
+## Getting Started
 
-Ser a plataforma líder mundial em gestão de ativos financeiros, reconhecida pela excelência em inovação, segurança e satisfação do cliente.
+### Prerequisites
 
-## Valores
+- Python 3.7 or higher
+- Required Python packages listed in `requirements.txt`
+- Google Chrome browser installed
 
-- **Inovação:** Estamos comprometidos em continuamente buscar novas tecnologias e métodos para melhorar nossos serviços.
-- **Integridade:** Agimos com transparência e ética em todas as nossas interações e transações.
-- **Excelência:** Nos esforçamos para fornecer serviços da mais alta qualidade.
-- **Segurança:** Priorizamos a proteção dos dados e ativos de nossos clientes.
-- **Satisfação do Cliente:** Nos dedicamos a entender e atender às necessidades de nossos clientes.
+### Installation
 
-## Produtos e Serviços
+1. **Clone the repository:**
+   ```sh
+   git clone https://github.com/your-username/financial-data-scraping-app.git
+   cd financial-data-scraping-app
 
-### 1. Gestão de Portfólio
-
-Ferramentas avançadas para monitorar, analisar e otimizar carteiras de investimentos, garantindo o melhor desempenho possível.
-
-### 2. Análise de Risco
-
-Soluções para identificar, medir e mitigar riscos financeiros, ajudando nossos clientes a proteger seus investimentos.
-
-### 3. Consultoria Financeira
-
-Serviços personalizados de consultoria para ajudar indivíduos e empresas a desenvolver estratégias financeiras sólidas e sustentáveis.
-
-### 4. Educação Financeira
-
-Recursos educativos para capacitar nossos clientes com conhecimento financeiro, incluindo webinars, workshops e artigos.
-
-## Tecnologias Utilizadas
-
-- **Frontend:** Next.js, React, Tailwind CSS
-- **Backend:** Flask, Pandas, SQLAlchemy
-- **Banco de Dados:** PostgreSQL
-- **Outras Tecnologias:** Docker, Kubernetes, CI/CD
-
-## Instalação e Configuração
-
-### Pré-requisitos
-
-- [Node.js](https://nodejs.org/)
-- [Python 3.8+](https://www.python.org/)
-- [PostgreSQL](https://www.postgresql.org/)
-- [Git](https://git-scm.com/)
-
-### Instruções
-
-1. **Clone o repositório:**
-
-   ```bash
-   git clone https://github.com/faustostangler/ASW.git
-   cd ASW
-
-2. **Configuração do Frontend:**
-
-    cd frontend
-    npm install
-    npm run dev
-
-O frontend estará disponível em http://localhost:3000.
-
-
-3. **Configuração do Backend:**
-
-    cd backend
-    python -m venv .venv
-    .\.venv\Scripts\activate
+2. **Install the required packages:**
     pip install -r requirements.txt
 
-    # Configuração do banco de dados
-    flask db init
-    flask db migrate -m "Initial migration"
-    flask db upgrade
+3. Set up the database:
+    Ensure the SQLite database file b3.db is in the specified folder (backend/data).
 
-    # Executar o servidor
-    python run.py
+### Configuration
+Configure system-wide settings in settings.py:
 
-O backend estará disponível em http://localhost:5000.
+batch_size: Batch size for data processing
+db_name: Database name (default is b3.db)
+db_folder: Folder where the database is stored
+wait_time: Wait time for Selenium operations
+companies_url: URL for the B3 companies search page
+company_url: URL for the B3 company detail page
 
-### Contribuições
-Contribuições são bem-vindas! Por favor, siga os passos abaixo para contribuir:
+### Usage
+1. Run the main script:
+    python b3.py
 
-    Faça um fork do projeto
-    Crie uma branch para sua feature (git checkout -b feature/nova-feature)
-    Commit suas mudanças (git commit -m 'Adiciona nova feature')
-    Faça o push para a branch (git push origin feature/nova-feature)
-    Abra um Pull Request
+This will start the process of scraping company information, NSD values, and financial sheets.
 
+### Modules
+b3.py: The main script that orchestrates the scraping and data processing tasks.
+settings.py: Contains configuration settings for the app.
+selenium_driver.py: Manages the setup and operation of the Selenium WebDriver.
+nsd_scrap.py: Handles the generation and scraping of NSD values.
+finsheet.py: Scrapes and processes standardized financial statements and quarterly information.
+company_scrap.py: Extracts company details from the B3 website.
+system.py: Provides utility functions for logging, web interactions, and database operations.
 
-### Licença
-Este projeto está licenciado sob a MIT License.
+## Contributing
+Fork the repository
+Create a new branch (git checkout -b feature-branch)
+Commit your changes (git commit -am 'Add new feature')
+Push to the branch (git push origin feature-branch)
+Create a new Pull Request
 
-Contato
-Para mais informações, entre em contato comigo:
-Email: fausto.stangler@gmail.com
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgements
+Selenium for web automation
+BeautifulSoup for parsing HTML
+SQLite for the database
+
+"Inspired by the Pampas and crafted with yerba mate in Porto Alegre, a authentic gaucho product."

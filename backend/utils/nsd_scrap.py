@@ -46,11 +46,9 @@ def generate_nsd_list(db_name):
     if not existing_nsds:
         return ([], [])  # Return tuple with empty lists if no NSD values are present
     
-    # Determine the maximum NSD value
-    max_nsd = max(existing_nsds)
-    
     # Generate new NSD list based on date difference
     if result and result[0]:
+        max_nsd = max(existing_nsds)
         first_date = pd.to_datetime(result[1])
         last_date = pd.to_datetime(result[2])
 
@@ -58,10 +56,10 @@ def generate_nsd_list(db_name):
         items_per_day = max_nsd / days_diff_total if days_diff_total != 0 else 0
 
         current_date = pd.to_datetime(datetime.now())
-        days_to_current = (current_date - last_date).days
-        remaining_items = int(items_per_day * days_to_current) 
+        days_to_current = (current_date - last_date).days + 1
+        remaining_items = int(items_per_day * days_to_current)
 
-        nsd_new_values = list(range(max_nsd, max_nsd + (remaining_items * settings.wait_time * 5)+ 1)) # increases the interval
+        nsd_new_values = list(range(max_nsd, max_nsd + (remaining_items * settings.wait_time * 2) + 1)) 
     
     else:
         nsd_new_values = []
@@ -225,7 +223,7 @@ def nsd_scrape(nsd_list):
                 extra_info = [nsd, data['sent_date'], data['date'].strftime('%Y-%m'), data['nsd_type'], data['company']]
 
             else:
-                extra_info = []
+                extra_info = [nsd]
 
             system.print_info(i, nsd_list[0], nsd_list[-1], extra_info, start_time, size)
 
@@ -250,8 +248,7 @@ def main(db_name=settings.db_name):
     """
     nsd_new_values, nsd_missing_values = generate_nsd_list(db_name)
     nsd_scrape(nsd_new_values)
-    # nsd_scrape(nsd_missing_values)
-    print ('re-activate missing_values scrape')
+    nsd_scrape(nsd_missing_values)
     
 if __name__ == "__main__":
     # Initialize Selenium WebDriver
@@ -262,9 +259,3 @@ if __name__ == "__main__":
 
     # Quit the WebDriver session
     driver.quit()
-
-
-
-
-
-
