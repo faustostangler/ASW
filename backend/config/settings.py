@@ -6,6 +6,19 @@ db_name = 'b3.db'  # Database name
 db_folder = 'backend/data'  # Folder where the database is stored
 db_folder_short = 'data'
 finsheet_types =  ["DEMONSTRACOES FINANCEIRAS PADRONIZADAS", "INFORMACOES TRIMESTRAIS"]
+findata = [
+    ['DFs Consolidadas', 'Demonstração do Resultado'], 
+    ['DFs Individuais', 'Balanço Patrimonial Ativo'], 
+    # ['Dados da Empresa', 'Composição do Capital'], 
+    ['DFs Individuais', 'Balanço Patrimonial Passivo'], 
+    ['DFs Individuais', 'Demonstração do Resultado'], 
+    ['DFs Individuais', 'Demonstração do Fluxo de Caixa'], 
+    ['DFs Individuais', 'Demonstração de Valor Adicionado'], 
+    ['DFs Consolidadas', 'Balanço Patrimonial Ativo'], 
+    ['DFs Consolidadas', 'Balanço Patrimonial Passivo'], 
+    ['DFs Consolidadas', 'Demonstração do Fluxo de Caixa'], 
+    ['DFs Consolidadas', 'Demonstração de Valor Adicionado'], 
+            ]
 
 # Selenium settings
 wait_time = 2  # Wait time for Selenium operations

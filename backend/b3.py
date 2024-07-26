@@ -25,10 +25,10 @@ if __name__ == "__main__":
         # company_info = company_scrap.get_company_info(driver, driver_wait, company_tickers)
 
         # Scrape NSD values
-        # nsd_scrap.main(settings.db_name)
+        nsd_scrap.main(settings.db_name)
 
         # Scrape Financial Sheets
-        nsd_list = finsheet.main()
+        nsd_list = finsheet.main(driver, driver_wait)
 
         # Close the browser window
         driver.quit()

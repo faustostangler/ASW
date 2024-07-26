@@ -1,12 +1,16 @@
 # finsheet.py
 
+from io import StringIO
 import pandas as pd
 import sqlite3
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support import expected_conditions as EC
+
 from utils import system
-from utils import selenium_driver
 from config import settings
 
-def get_nsd_list(criteria=settings.finsheet_types):
+def get_nsd_data(criteria=settings.finsheet_types, db_name=f'{settings.db_folder}/{settings.db_name}'):
     """
     Retrieve NSD values based on criteria and perform an outer merge with company_info table.
     
@@ -18,7 +22,8 @@ def get_nsd_list(criteria=settings.finsheet_types):
     """
     try:
         # Connect to the database
-        conn = sqlite3.connect(f'{settings.db_folder}/{settings.db_name}')
+        
+        conn = sqlite3.connect(db_name)
         
         # Prepare the criteria string for SQL query
         criteria_str = ', '.join(f"'{c}'" for c in criteria)
@@ -66,17 +71,120 @@ def get_nsd_list(criteria=settings.finsheet_types):
         
         # Close the connection
         conn.close()
-        return df_sorted['nsd'].tolist()
+        return df_sorted
     
     except Exception as e:
         system.log_error(e)
         return []
 
-def main(finsheet=None):
+def scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
     
-    nsd_list = get_nsd_list(settings.finsheet_types)
+    try:
+        xpath_grupo = '//*[@id="cmbGrupo"]'
+        xpath_quadro = '//*[@id="cmbQuadro"]'
 
-    return finsheet
+        # Select the correct options for cmbGrupo and cmbQuadro
+        element_grupo = system.wait_forever(driver_wait, xpath_grupo)
+        select_grupo = Select(driver.find_element(By.XPATH, xpath_grupo))
+        select_grupo.select_by_visible_text(cmbGrupo)
+        
+        element_quadro = system.wait_forever(driver_wait, xpath_quadro)
+        select_quadro = Select(driver.find_element(By.XPATH, xpath_quadro))
+        select_quadro.select_by_visible_text(cmbQuadro)
+
+        # selenium enter frame
+        xpath = '//*[@id="iFrameFormulariosFilho"]'
+        frame = system.wait_forever(driver_wait, xpath)
+        frame = driver.find_elements(By.XPATH, xpath)
+        driver.switch_to.frame(frame[0])
+
+        # read and clean quadro
+        xpath = '//*[@id="ctl00_cphPopUp_tbDados"]'
+        thousand = system.wait_forever(driver_wait, xpath)
+
+        xpath = '//*[@id="TituloTabelaSemBorda"]'
+        thousand = driver_wait.until(EC.presence_of_element_located((By.XPATH, xpath))).text
+        thousand = 1000 if "Mil" in thousand else 1
+
+        html_content = driver.page_source
+        df1 = pd.read_html(StringIO(html_content), header=0)[0]
+        df2 = pd.read_html(StringIO(html_content), header=0, thousands='.')[0].fillna(0)
+
+        df1.rename(columns={df1.columns[2]: quarter}, inplace=True)
+        df2.rename(columns={df2.columns[2]: quarter}, inplace=True)
+        df = pd.concat([df1.iloc[:, :2], df2.iloc[:, 2:3]], axis=1)
+
+        col = df.iloc[:, 2].astype(str)
+        col = col.str.replace('.', '', regex=False)
+        col = col.str.replace(',', '.', regex=False)
+        col = pd.to_numeric(col, errors='coerce')
+        col = col * thousand
+        df.iloc[:, 2] = col
+
+        # selenium exit frame
+        driver.switch_to.parent_frame()
+        
+        return df
+    
+    except Exception as e:
+        # system.log_error(e)
+        return None
+
+def main(driver, driver_wait, finsheet=None):
+    
+    df_nsd = get_nsd_data(settings.finsheet_types)
+
+    all_data = []
+    for index, row in df_nsd.iterrows():
+        quarter = pd.to_datetime(row['quarter'], dayfirst=False, errors='coerce').strftime('%Y-%m-%d')
+
+        url = f"https://www.rad.cvm.gov.br/ENET/frmGerenciaPaginaFRE.aspx?NumeroSequencialDocumento={row['nsd']}&CodigoTipoInstituicao=1"
+        driver.get(url)
+
+        for cmbGrupo, cmbQuadro in settings.findata: 
+            df = scrape_financial_data(driver, driver_wait,  cmbGrupo, cmbQuadro, quarter)
+            if df is not None:
+                all_data.append((row['nsd'], row['company_name'], quarter, row['setor'], row['subsetor'], row['segmento'], row['version'], cmbGrupo, cmbQuadro, df))
+
+        dfi = []
+        dfc = []
+
+        # Process each tuple in the all_data list
+        for nsd, company_name, quarter, setor, subsetor, segmento, version, cmbGrupo, cmbQuadro, df in all_data:
+            # Insert columns for nsd, cmbGrupo, and cmbQuadro
+            df.insert(0, 'nsd', nsd)
+            df.insert(0, 'company_name', company_name)
+            df.insert(0, 'quarter', quarter)
+            df.insert(0, 'version', version)
+            df.insert(0, 'segmento', segmento)
+            df.insert(0, 'subsetor', subsetor)
+            df.insert(0, 'setor', setor)
+            df.insert(0, 'tipo', cmbQuadro)
+            df.insert(0, 'quadro', cmbGrupo)
+
+            # Append the DataFrame to the appropriate list based on cmbGrupo
+            if 'Individuais' in cmbGrupo:
+                dfi.append(df)
+            elif 'Consolidadas' in cmbGrupo:
+                dfc.append(df)
+
+
+        columns = ['nsd', 'tipo', 'setor', 'subsetor', 'segmento', 'company_name', 
+                            'quadro', 'conta', 'descrição', 'quarter', 'version']
+        # Concatenate all DataFrames in each list into single DataFrames
+        if dfi:
+            df_individual = pd.concat(dfi, ignore_index=True).sort_values(by='Conta')
+        else:
+            df_individual = pd.DataFrame(columns=columns)
+
+        # Handle df_consolidada
+        if dfc:
+            df_consolidada = pd.concat(dfc, ignore_index=True).sort_values(by='Conta')
+        else:
+            df_consolidada = pd.DataFrame(columns=columns)
+        print('done')
+
+    return df_individual[columns], df_consolidada[columns]
 
 if __name__ == "__main__":
     finsheet = main()
