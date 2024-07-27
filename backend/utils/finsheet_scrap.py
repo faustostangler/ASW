@@ -316,6 +316,9 @@ def finsheet_scrape(driver, driver_wait, df_nsd):
 
     for index, row in df_nsd.iterrows():
         quarter = pd.to_datetime(row['quarter'], dayfirst=False, errors='coerce').strftime('%Y-%m-%d')
+        extra_info_nsd = [row['nsd'], row['company_name'], quarter]
+        system.print_info(counter, 0, size_nsd, extra_info_nsd, start_time_nsd, size_nsd)
+        counter += 1
 
         if not check_existing_data(row['setor'], row['company_name'], quarter, row['version'], settings.db_folder, base_db_name='b3.db'):
             continue  # Skip scraping if data already exists and is up-to-date.
@@ -350,12 +353,8 @@ def finsheet_scrape(driver, driver_wait, df_nsd):
 
             all_data.append(df)
 
-        extra_info_nsd = [row['nsd'], row['company_name'], quarter]
-        system.print_info(counter, 0, size_nsd, extra_info_nsd, start_time_nsd, size_nsd)
-        counter += 1
-
         # Save to DB every settings.batch_size iterations or at the end
-        if (counter + 1) % settings.batch_size == 0 or counter == size_nsd - 1:
+        if (counter + 1) % int(settings.batch_size/10) == 0 or counter == size_nsd - 1:
             finsheet = pd.concat(all_data, ignore_index=True)
             # Reorder columns and sort
             columns = ['nsd', 'tipo', 'setor', 'subsetor', 'segmento', 'company_name', 'quadro', 'quarter', 'conta', 'descricao', 'valor', 'version']
@@ -369,7 +368,7 @@ def finsheet_scrape(driver, driver_wait, df_nsd):
 
 def main(driver, driver_wait, batch_size=settings.big_batch_size, batch=1):
     df_nsd = get_nsd_data(settings.finsheet_types).reset_index(drop=True)
-    num_batches = len(df_nsd) // batch_size + 1
+    num_batches = settings.num_batches
 
     for i in range(num_batches):
         if i == batch: # if i >= 0
