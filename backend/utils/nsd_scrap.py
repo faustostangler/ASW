@@ -251,11 +251,4 @@ def main(db_name=settings.db_name):
     nsd_scrape(nsd_missing_values)
     
 if __name__ == "__main__":
-    # Initialize Selenium WebDriver
-    driver, driver_wait = selenium_driver.get_driver()
-
-    # Scrape NSD values
-    main(driver, driver_wait, settings.db_name)
-
-    # Quit the WebDriver session
-    driver.quit()
+    print('this is a module. done!')

@@ -1,23 +1,27 @@
 import re
 
 # System-wide settings
-batch_size = 50  # Batch size for data processing
+batch_size = 1  # Batch size for data processing
 db_name = 'b3.db'  # Database name
 db_folder = 'backend/data'  # Folder where the database is stored
 db_folder_short = 'data'
 finsheet_types =  ["DEMONSTRACOES FINANCEIRAS PADRONIZADAS", "INFORMACOES TRIMESTRAIS"]
 findata = [
-    ['DFs Consolidadas', 'Demonstração do Resultado'], 
-    ['DFs Individuais', 'Balanço Patrimonial Ativo'], 
     # ['Dados da Empresa', 'Composição do Capital'], 
-    ['DFs Individuais', 'Balanço Patrimonial Passivo'], 
-    ['DFs Individuais', 'Demonstração do Resultado'], 
-    ['DFs Individuais', 'Demonstração do Fluxo de Caixa'], 
-    ['DFs Individuais', 'Demonstração de Valor Adicionado'], 
+    ['DFs Consolidadas', 'Demonstração do Resultado'], 
     ['DFs Consolidadas', 'Balanço Patrimonial Ativo'], 
     ['DFs Consolidadas', 'Balanço Patrimonial Passivo'], 
     ['DFs Consolidadas', 'Demonstração do Fluxo de Caixa'], 
     ['DFs Consolidadas', 'Demonstração de Valor Adicionado'], 
+    ['DFs Individuais', 'Demonstração do Resultado'], 
+    ['DFs Individuais', 'Balanço Patrimonial Ativo'], 
+    ['DFs Individuais', 'Balanço Patrimonial Passivo'], 
+    ['DFs Individuais', 'Demonstração do Fluxo de Caixa'], 
+    ['DFs Individuais', 'Demonstração de Valor Adicionado'], 
+            ]
+
+fincapital = [
+    ['Dados da Empresa', 'Composição do Capital'], 
             ]
 
 # Selenium settings

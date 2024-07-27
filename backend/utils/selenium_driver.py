@@ -139,7 +139,9 @@ def load_driver(chromedriver_path):
         # chrome_options.add_argument("--headless")
         chrome_options.add_argument('start-maximized')  # Maximize the window on startup.
         chrome_options.add_argument("--ignore-certificate-errors")
-        chrome_options.add_argument("--log-level=ALL")
+        chrome_options.add_argument("--log-level=3")
+        chrome_options.add_argument('--ignore-ssl-errors')
+        # chrome_options.add_argument('--disable-logging')
 
         # Create and return a new instance of the Chrome WebDriver
         driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
@@ -177,8 +179,4 @@ def get_driver():
         return None, None
 
 if __name__ == "__main__":
-    try:
-        # Get the WebDriver instance when running the script directly
-        driver = get_driver()
-    except Exception as e:
-        system.log_error(e)
+    print('this is a module. done!')

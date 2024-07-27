@@ -10,9 +10,9 @@ from config import settings
 from utils import selenium_driver
 from utils import nsd_scrap
 from utils import company_scrap
-from utils import finsheet
+from utils import finsheet_scrap
 from utils import system
-from utils import finsheet
+from utils import finsheet_scrap
 
 if __name__ == "__main__":
     try:
@@ -24,11 +24,11 @@ if __name__ == "__main__":
         # company_tickers = company_scrap.get_company_ticker(raw_code)
         # company_info = company_scrap.get_company_info(driver, driver_wait, company_tickers)
 
-        # Scrape NSD values
-        nsd_scrap.main(settings.db_name)
+        # # Scrape NSD values
+        # nsd_scrap.main(settings.db_name)
 
         # Scrape Financial Sheets
-        nsd_list = finsheet.main(driver, driver_wait)
+        nsd_list = finsheet_scrap.main(driver, driver_wait)
 
         # Close the browser window
         driver.quit()

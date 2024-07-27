@@ -352,28 +352,28 @@ def get_company_info(driver, driver_wait, company_tickers):
     print('Final save completed...')
     return all_company_info
 
-# Main script execution
 if __name__ == "__main__":
-    # Initialize Selenium WebDriver
-    driver, driver_wait = selenium_driver.get_driver()
+    # # Initialize Selenium WebDriver
+    # driver, driver_wait = selenium_driver.get_driver()
 
-    # Retrieve raw HTML code from B3 website
-    raw_code = get_raw_code(driver, driver_wait, settings.companies_url)
+    # # Retrieve raw HTML code from B3 website
+    # raw_code = get_raw_code(driver, driver_wait, settings.companies_url)
     
-    # Extract company tickers and names
-    company_tickers = get_company_ticker(raw_code)
+    # # Extract company tickers and names
+    # company_tickers = get_company_ticker(raw_code)
 
-    # Quit the WebDriver session
-    driver.quit()
+    # # Quit the WebDriver session
+    # driver.quit()
 
-    # Convert company tickers to DataFrame
-    companies_df = pd.DataFrame(company_tickers, columns=['ticker', 'company_name', 'pregao', 'listagem'])
-    companies_df.to_csv('company_data.csv', index=False)
+    # # Convert company tickers to DataFrame
+    # companies_df = pd.DataFrame(company_tickers, columns=['ticker', 'company_name', 'pregao', 'listagem'])
+    # companies_df.to_csv('company_data.csv', index=False)
 
-    # Print completion message
-    print("Data saved to company_data.csv")
+    # # Print completion message
+    # print("Data saved to company_data.csv")
 
 
+    print('this is a module. done!')
 
 
 

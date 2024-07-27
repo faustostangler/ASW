@@ -71,4 +71,4 @@ Selenium for web automation
 BeautifulSoup for parsing HTML
 SQLite for the database
 
-"Inspired by the Pampas and crafted with yerba mate in Porto Alegre, a authentic gaucho product."
+"Inspired by the Pampas and crafted with yerba mate in South America: an authentic gaucho product."
