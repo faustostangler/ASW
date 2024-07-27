@@ -307,9 +307,7 @@ def scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
         system.log_error(e)
         return None
 
-def main(driver, driver_wait):
-    df_nsd = get_nsd_data(settings.finsheet_types).reset_index(drop=True)
-
+def finsheet_scrape(driver, driver_wait, df_nsd):
     start_time_nsd = time.time()
     size_nsd = len(df_nsd)
     counter = 0
@@ -327,13 +325,13 @@ def main(driver, driver_wait):
 
         company_quarter_data = []  # Clear company_quarter_data for each company
 
-        for i, (cmbGrupo, cmbQuadro) in enumerate(settings.fincapital):
-            df = scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter)
+        for i, (cmbGrupo, cmbQuadro) in enumerate(settings.findata):
+            df = scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter)
             if df is not None:
                 company_quarter_data.append((row['nsd'], row['company_name'], quarter, row['setor'], row['subsetor'], row['segmento'], row['version'], cmbGrupo, cmbQuadro, df))
 
-        for i, (cmbGrupo, cmbQuadro) in enumerate(settings.findata):
-            df = scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter)
+        for i, (cmbGrupo, cmbQuadro) in enumerate(settings.fincapital):
+            df = scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter)
             if df is not None:
                 company_quarter_data.append((row['nsd'], row['company_name'], quarter, row['setor'], row['subsetor'], row['segmento'], row['version'], cmbGrupo, cmbQuadro, df))
 
@@ -359,15 +357,27 @@ def main(driver, driver_wait):
         # Save to DB every settings.batch_size iterations or at the end
         if (counter + 1) % settings.batch_size == 0 or counter == size_nsd - 1:
             finsheet = pd.concat(all_data, ignore_index=True)
+            # Reorder columns and sort
             columns = ['nsd', 'tipo', 'setor', 'subsetor', 'segmento', 'company_name', 'quadro', 'quarter', 'conta', 'descricao', 'valor', 'version']
             finsheet = finsheet[columns]
             finsheet = finsheet.sort_values(by=['conta', 'descricao'])
-
             save_to_db(finsheet)
             all_data.clear()
 
     print('done')
-    return True
+    return finsheet
+
+def main(driver, driver_wait, batch_size=settings.big_batch_size):
+    df_nsd = get_nsd_data(settings.finsheet_types).reset_index(drop=True)
+    num_batches = len(df_nsd) // batch_size + 1
+
+    for i in range(num_batches):
+        if i == 1: # if i >= 0
+            start_idx = i * batch_size
+            end_idx = start_idx + batch_size
+            df_nsd_batch = df_nsd[start_idx:end_idx]
+            if not df_nsd_batch.empty:
+                finsheet_scrape(driver, driver_wait, df_nsd_batch)
 
 if __name__ == "__main__":
     print('this is a module. done!')

@@ -2,6 +2,7 @@ import re
 
 # System-wide settings
 batch_size = 1  # Batch size for data processing
+big_batch_size = 10000
 db_name = 'b3.db'  # Database name
 db_folder = 'backend/data'  # Folder where the database is stored
 db_folder_short = 'data'
