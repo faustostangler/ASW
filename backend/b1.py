@@ -28,7 +28,7 @@ if __name__ == "__main__":
         # nsd_scrap.main(settings.db_name)
 
         # Scrape Financial Sheets
-        nsd_list = finsheet_scrap.main(driver, driver_wait, batch_size=settings.big_batch_size, batch=2)
+        nsd_list = finsheet_scrap.main(driver, driver_wait, batch_size=settings.big_batch_size, batch=0)
 
         # Close the browser window
         driver.quit()

@@ -367,12 +367,12 @@ def finsheet_scrape(driver, driver_wait, df_nsd):
     print('done')
     return finsheet
 
-def main(driver, driver_wait, batch_size=settings.big_batch_size):
+def main(driver, driver_wait, batch_size=settings.big_batch_size, batch=1):
     df_nsd = get_nsd_data(settings.finsheet_types).reset_index(drop=True)
     num_batches = len(df_nsd) // batch_size + 1
 
     for i in range(num_batches):
-        if i == 1: # if i >= 0
+        if i == batch: # if i >= 0
             start_idx = i * batch_size
             end_idx = start_idx + batch_size
             df_nsd_batch = df_nsd[start_idx:end_idx]
