@@ -21,10 +21,11 @@ findata = [
     ['DFs Individuais', 'Demonstração do Fluxo de Caixa'], 
     ['DFs Individuais', 'Demonstração de Valor Adicionado'], 
             ]
-
 fincapital = [
     ['Dados da Empresa', 'Composição do Capital'], 
             ]
+last_quarters = ['3', '4']
+all_quarters = ['6', '7']
 
 # Selenium settings
 wait_time = 2  # Wait time for Selenium operations

@@ -144,7 +144,7 @@ def wait_forever(driver_wait, xpath):
             element = driver_wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
             break
         except Exception as e:
-            log_error(e)
+            # log_error(e)
             time.sleep(settings.wait_time)  # Wait for a specified time and try again
     return element
 

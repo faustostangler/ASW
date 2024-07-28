@@ -79,6 +79,7 @@ tree.txt
 
 # Database files
 *.db
+*.csv
 
 # Binary directories
 bin/
