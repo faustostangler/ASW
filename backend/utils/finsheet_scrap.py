@@ -134,6 +134,8 @@ def save_to_db(df, base_db_name='b3'):
             # Commit changes and close the connection
             conn.commit()
             conn.close()
+    
+        print('Partial save completed...')
 
     except Exception as e:
         # Log any exceptions

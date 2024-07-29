@@ -11,6 +11,7 @@ from utils import selenium_driver
 from utils import nsd_scrap
 from utils import company_scrap
 from utils import finsheet_scrap
+from utils import finsheet_math
 from utils import system
 from utils import finsheet_scrap
 
@@ -27,8 +28,11 @@ if __name__ == "__main__":
         # # Scrape NSD values
         # nsd_scrap.main(settings.db_name)
 
-        # Scrape Financial Sheets
-        nsd_list = finsheet_scrap.main(driver, driver_wait, batch_size=settings.big_batch_size, batch=2)
+        # # Scrape Financial Sheets
+        # nsd_list = finsheet_scrap.main(driver, driver_wait, batch_size=settings.big_batch_size, batch=2)
+
+        # Re-calculate finsheet
+        fin_math = finsheet_math.main()
 
         # Close the browser window
         driver.quit()
