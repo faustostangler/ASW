@@ -212,9 +212,8 @@ def main():
         start_time = time.time()
 
         for i, db_file in enumerate(valid_db_files):
-            if 'zzz' not in db_file:
-                system.print_info(i, total_files, total_files, extra_info=[db_file], start_time=start_time, size=total_files)
-                process_and_save_data(db_file)
+            system.print_info(i, total_files, total_files, extra_info=[db_file], start_time=start_time, size=total_files)
+            process_and_save_data(db_file)
 
         print('done')
     except Exception as e:
