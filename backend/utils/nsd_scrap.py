@@ -1,254 +1,213 @@
+import os
+import glob
 import time
 import sqlite3
 import pandas as pd
-import os
-import shutil
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-import re
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-from utils import system
-from utils import selenium_driver
 from config import settings
+from utils import system
 
-def generate_nsd_list(db_name):
+def load_existing_math_db(math_db_path):
     """
-    Generates a list of new NSD numbers to scrape and finds missing NSD values.
+    Load data from the existing math.db file.
 
     Parameters:
-    - db_name (str): The name of the SQLite database file.
+    - math_db_path (str): Path to the existing math.db file.
 
     Returns:
-    tuple: A tuple with two elements:
-           - A list of new NSD numbers generated based on date difference.
-           - A list of missing NSD values from the database.
+    - DataFrame: Data from the existing math.db file, with 'quarter' column converted to datetime.
     """
-    conn = sqlite3.connect(f'{settings.db_folder}/{db_name}')
-    cursor = conn.cursor()
-
-    # Fetch the NSD data
-    cursor.execute('SELECT nsd, MIN(sent_date), MAX(sent_date) FROM nsd')
-    result = cursor.fetchone()
+    if not os.path.exists(math_db_path):
+        # Return an empty DataFrame if the file does not exist
+        return pd.DataFrame()
     
-    # Retrieve all existing NSD values
-    cursor.execute("SELECT nsd FROM nsd ORDER BY nsd;")
-    existing_nsds = cursor.fetchall()
-    
-    # Close the database connection
+    # Connect to the SQLite database and read data into a DataFrame
+    conn = sqlite3.connect(math_db_path)
+    df = pd.read_sql_query("SELECT * FROM finsheet", conn)
     conn.close()
     
-    # Convert list of tuples to a list of integers
-    existing_nsds = [nsd[0] for nsd in existing_nsds]
-    
-    if not existing_nsds:
-        return ([], [])  # Return tuple with empty lists if no NSD values are present
-    
-    # Generate new NSD list based on date difference
-    if result and result[0]:
-        max_nsd = max(existing_nsds)
-        first_date = pd.to_datetime(result[1])
-        last_date = pd.to_datetime(result[2])
+    # Convert 'quarter' column to datetime and drop rows with invalid dates
+    df['quarter'] = pd.to_datetime(df['quarter'], errors='coerce')
+    df.dropna(subset=['quarter'], inplace=True)
+    return df
 
-        days_diff_total = (last_date - first_date).days
-        items_per_day = max_nsd / days_diff_total if days_diff_total != 0 else 0
-
-        current_date = pd.to_datetime(datetime.now())
-        days_to_current = (current_date - last_date).days + 1
-        remaining_items = int(items_per_day * days_to_current)
-
-        nsd_new_values = list(range(max_nsd, max_nsd + (remaining_items * settings.wait_time * 2) + 1)) 
-    
-    else:
-        nsd_new_values = []
-    
-    # Create a set of all possible NSD values in the range 1 to max_nsd
-    full_set = set(range(1, max_nsd + 1))
-    existing_set = set(existing_nsds)
-    
-    # Find missing NSD values
-    nsd_missing_values = sorted(full_set - existing_set)
-    
-    return nsd_new_values, nsd_missing_values
-
-def parse_data(html_content, i):
+def compare_and_find_new_data(df_existing, df_new):
     """
-    Parses the data from the HTML content for the given NSD number.
+    Compare the existing and new data to find only the new data entries.
 
     Parameters:
-    - html_content: The HTML content of the web page.
-    - i (int): The NSD number.
+    - df_existing (DataFrame): Data from the existing math.db.
+    - df_new (DataFrame): Data from the new database file.
 
     Returns:
-    dict: A dictionary containing the parsed data.
+    - DataFrame: Data containing only new entries.
     """
-    try:
-        soup = BeautifulSoup(html_content, 'html.parser')
-        data = {}
-        data['nsd'] = i
+    # Define group columns for comparison
+    group_columns = ['company_name', 'tipo', 'quadro', 'conta', df_new['quarter'].dt.year]
+    
+    # Concatenate existing and new data, then drop duplicates to identify new data
+    df_combined = pd.concat([df_existing, df_new])
+    df_combined.drop_duplicates(subset=group_columns, keep=False, inplace=True)
+    
+    # Extract new data entries
+    new_data = df_combined.loc[df_combined.index.isin(df_new.index)]
+    return new_data
 
-        # Extract company name
-        company_element = soup.select_one('#lblNomeCompanhia')
-        company_text = system.clean_text(company_element.text) if company_element else ""
-        data['company'] = re.sub(settings.words_to_remove, '', company_text)
-
-        # Extract DRI name
-        dri_element = soup.select_one('#lblNomeDRI')
-        data['dri'] = system.clean_text(dri_element.text.split('-')[0].strip()) if dri_element else ""
-
-        # Extract NSD type and version
-        nsd_type_element = soup.select_one('#lblDescricaoCategoria')
-        nsd_type_version = nsd_type_element.text if nsd_type_element else ""
-        data['nsd_type'] = system.clean_text(nsd_type_version.split('-')[0].strip())
-        version_match = re.search(r'V(\d+)', nsd_type_version)
-        data['version'] = int(version_match.group(1)) if version_match else None
-
-        # Extract auditor name
-        auditor_element = soup.select_one('#lblAuditor')
-        data['auditor'] = system.clean_text(auditor_element.text.split('-')[0].strip()) if auditor_element else ""
-
-        # Extract auditor responsible
-        auditor_rt_element = soup.select_one('#lblResponsavelTecnico')
-        data['auditor_rt'] = system.clean_text(auditor_rt_element.text) if auditor_rt_element else ""
-
-        # Extract protocol number
-        protocolo_element = soup.select_one('#lblProtocolo')
-        data['protocolo'] = protocolo_element.text.replace('-', '').strip() if protocolo_element else ""
-
-        # Extract document date
-        date_element = soup.select_one('#lblDataDocumento')
-        date_str = date_element.text if date_element else ""
-        data['date'] = pd.to_datetime(date_str, dayfirst=True, errors='coerce')
-
-        # Extract sent date
-        sent_date_element = soup.select_one('#lblDataEnvio')
-        sent_date_str = sent_date_element.text if sent_date_element else ""
-        data['sent_date'] = pd.to_datetime(sent_date_str, dayfirst=True, errors='coerce')
-
-        # Extract reason for cancellation or re-presentation
-        reason_element = soup.select_one('#lblMotivoCancelamentoReapresentacao')
-        data['reason'] = system.clean_text(reason_element.text) if reason_element else ""
-
-    except Exception as e:
-        system.log_error(e)
-        pass
-
-    return data if 'sent_date' in data else None
-
-def save_to_db(data, db_name=settings.db_name):
+def process_and_save_data(db_file, existing_math_db):
     """
-    Saves the parsed data to the database.
+    Process the data from a single database file and save the results back to the database.
 
     Parameters:
-    - data (list): A list of dictionaries containing parsed data.
-    - db_name (str): Name of the database file.
+    - db_file (str): Path to the database file.
+    - existing_math_db (DataFrame): Data from the existing math.db.
+    """
+    # Load data from the current database file into a DataFrame
+    conn = sqlite3.connect(db_file)
+    df = pd.read_sql_query("SELECT * FROM finsheet", conn)
+    conn.close()
+    
+    # Convert 'quarter' column to datetime and drop rows with invalid dates
+    df['quarter'] = pd.to_datetime(df['quarter'], errors='coerce')
+    df.dropna(subset=['quarter'], inplace=True)
+
+    # Compare with existing data to find new entries
+    df_new = compare_and_find_new_data(existing_math_db, df)
+    if df_new.empty:
+        print(f"No new data in {db_file}")
+        return
+    
+    # Group new data by specified columns
+    df_new_grouped = df_new.groupby(['company_name', 'tipo', 'quadro', 'conta', df_new['quarter'].dt.year])
+    
+    transformed_data = []
+    for _, df_group in df_new_grouped:
+        # Determine the prefix of 'conta' to apply specific calculations
+        conta_prefix = df_group['conta'].iloc[0][0]
+        df_math = apply_b3_math(df_group.copy(), conta_prefix)
+        transformed_data.append(df_math)
+    
+    if transformed_data:
+        # Concatenate transformed data and save to the database
+        df_transformed = pd.concat(transformed_data).reset_index(drop=True)
+        save_db(df_transformed, db_file)
+
+def apply_b3_math(df, conta_prefix):
+    """
+    Apply B3 math calculations to the DataFrame.
+
+    Parameters:
+    - df (DataFrame): DataFrame to apply calculations on.
+    - conta_prefix (str): Prefix of 'conta' to determine calculation logic.
+
+    Returns:
+    - DataFrame: DataFrame with updated values based on B3 math calculations.
     """
     try:
-        if not data:
-            return
+        # Initialize dictionaries to store indices and values for each quarter
+        indices = {'March': None, 'June': None, 'September': None, 'December': None}
+        values = {'March': 0, 'June': 0, 'September': 0, 'December': 0}
 
-        # Backup existing database
-        base_name, ext = os.path.splitext(db_name)
-        backup_name = f"{base_name} backup{ext}"
-        db_path = os.path.join(settings.db_folder, db_name)
-        db_path = db_path.replace(os.path.join('data', 'data'), 'data')
-        db_path = os.path.normpath(db_path)
+        # Define mapping of month to quarter names
+        month_to_quarter = {3: 'March', 6: 'June', 9: 'September', 12: 'December'}
 
-        backup_path = os.path.join(settings.db_folder, backup_name)
-        backup_path = backup_path.replace(os.path.join('data', 'data'), 'data')
-        backup_path = os.path.normpath(backup_path)
+        # Iterate through each quarter to find max value and index
+        for month, quarter_name in month_to_quarter.items():
+            try:
+                df_quarter = df[df['quarter'].dt.month == month]
+                if not df_quarter.empty:
+                    indices[quarter_name] = df_quarter.index[0]
+                    values[quarter_name] = df_quarter['valor'].max()
+            except Exception as e:
+                system.log_error(e)
 
-        shutil.copy2(db_path, backup_path)
+        # Extract indices and values
+        i3, v3 = indices['March'], values['March']
+        i6, v6 = indices['June'], values['June']
+        i9, v9 = indices['September'], values['September']
+        i12, v12 = indices['December'], values['December']
 
-        # Connect to the database
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
+        # Apply B3 math logic based on quarter identifiers
+        def apply_b3_math_logic(v3, v6, v9, v12, conta_prefix, settings, df):
+            try:
+                if conta_prefix in settings.last_quarters:
+                    v12 -= (v9 + v6 + v3)
+                elif conta_prefix in settings.all_quarters:
+                    v6 -= v3
+                    v9 -= (v6 + v3)
+                    v12 -= (v9 + v6 + v3)
+            except Exception as e:
+                system.log_error(e)
+            return v3, v6, v9, v12
 
-        # Create table if it doesn't exist
-        cursor.execute('''CREATE TABLE IF NOT EXISTS nsd
-                        (nsd INTEGER PRIMARY KEY, company TEXT, dri TEXT, nsd_type TEXT, version INTEGER, auditor TEXT,
-                        auditor_rt TEXT, protocolo TEXT, quarter TEXT, sent_date TEXT, reason TEXT)''')
+        # Apply the logic and update values
+        v3, v6, v9, v12 = apply_b3_math_logic(v3, v6, v9, v12, conta_prefix, settings, df)
+        def update_dataframe(df, indices, values):
+            for quarter, idx in indices.items():
+                if idx is not None:
+                    df.loc[idx, 'valor'] = values[quarter]
 
-        for item in data:
-            quarter_str = item['date'].isoformat() if item['date'] else None
-            sent_date_str = item['sent_date'].isoformat() if item['sent_date'] else None
+        # Update DataFrame with new values
+        indices = {'March': i3, 'June': i6, 'September': i9, 'December': i12}
+        values = {'March': v3, 'June': v6, 'September': v9, 'December': v12}
+        update_dataframe(df, indices, values)
 
-            cursor.execute('''INSERT INTO nsd 
-                            (nsd, company, dri, nsd_type, version, auditor, auditor_rt, protocolo, quarter, sent_date, reason) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            ON CONFLICT(nsd) DO UPDATE SET
-                            company=excluded.company,
-                            dri=excluded.dri,
-                            nsd_type=excluded.nsd_type,
-                            version=excluded.version,
-                            auditor=excluded.auditor,
-                            auditor_rt=excluded.auditor_rt,
-                            protocolo=excluded.protocolo,
-                            quarter=excluded.quarter,
-                            sent_date=excluded.sent_date,
-                            reason=excluded.reason''',
-                            (item['nsd'], item['company'], item['dri'], item['nsd_type'], item['version'], 
-                            item['auditor'], item['auditor_rt'], item['protocolo'], 
-                            quarter_str, sent_date_str, item['reason']))
+        return df
+    except Exception as e:
+        system.log_error(e)
+        return df
 
-        conn.commit()
+def save_db(df, db_file):
+    """
+    Save the transformed DataFrame back to the database with a 'math' suffix.
+
+    Parameters:
+    - df (DataFrame): The transformed DataFrame.
+    - db_file (str): Path to the original database file.
+    """
+    try:
+        # Create a new database file name with a 'math' suffix
+        math_db_file = db_file.replace('.db', ' math.db')
+        conn = sqlite3.connect(math_db_file)
+        # Save the DataFrame to the new database file
+        df.to_sql('finsheet', conn, if_exists='replace', index=False)
         conn.close()
-
-        print('Partial save completed...')
+        print(f"Saved transformed data to {math_db_file}")
     except Exception as e:
         system.log_error(e)
 
-def nsd_scrape(nsd_list):
+def main():
     """
-    Scrapes NSD data for each NSD number in nsd_list.
-
-    Parameters:
-    - nsd_list (list): A list of NSD numbers to scrape.
+    Main function to load existing math.db, process new database files, 
+    and save only new data based on comparison with existing data.
     """
     try:
-        db_name = f'{settings.db_folder_short}/{settings.db_name}'
-        all_data = []
-        size = len(nsd_list)
+        # Define base directory and data folder paths
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        db_folder = os.path.join(base_dir, settings.db_folder_short)
+
+        # Extract base name and prefix for database files
+        base_name, ext = os.path.splitext(settings.db_name)
+        base_db_prefix = f"{base_name} "
+
+        # List all database files matching the prefix in the specified directory
+        db_files = glob.glob(os.path.join(db_folder, f'{base_db_prefix}*.db'))
+        valid_db_files = [db_file for db_file in db_files if 'backup' not in db_file and 'math' not in db_file]
+        
+        # Load data from existing math.db
+        existing_math_db_path = os.path.join(db_folder, f"{base_name} math.db")
+        existing_math_db = load_existing_math_db(existing_math_db_path)
+        
+        total_files = len(valid_db_files)
         start_time = time.time()
 
-        for i, nsd in enumerate(nsd_list):
-            url = f"https://www.rad.cvm.gov.br/ENET/frmGerenciaPaginaFRE.aspx?NumeroSequencialDocumento={nsd}&CodigoTipoInstituicao=1"
-            response = requests.get(url)
-            data = parse_data(response.content, nsd)
+        for i, db_file in enumerate(valid_db_files):
+            # Print progress information
+            system.print_info(i, total_files, total_files, extra_info=[db_file], start_time=start_time, size=total_files)
+            # Process and save new data
+            process_and_save_data(db_file, existing_math_db)
 
-            if data['company']:
-                all_data.append(data)
-                extra_info = [nsd, data['sent_date'], data['date'].strftime('%Y-%m'), data['nsd_type'], data['company']]
-
-            else:
-                extra_info = [nsd]
-
-            system.print_info(i, nsd_list[0], nsd_list[-1], extra_info, start_time, size)
-
-            if (i + 1) % settings.batch_size == 0 or i == size - 1:
-                save_to_db(all_data, db_name)
-                all_data.clear()
-
-        save_to_db(all_data, db_name)
-        print('Final save completed...')
-
+        print('done')
     except Exception as e:
         system.log_error(e)
 
-def main(db_name=settings.db_name):
-    """
-    Scrapes NSD values from the website and saves them to the database.
-
-    Parameters:
-    - driver: The Selenium WebDriver instance.
-    - driver_wait: The WebDriverWait instance.
-    - db_name (str): Name of the database file.
-    """
-    nsd_new_values, nsd_missing_values = generate_nsd_list(db_name)
-    nsd_scrape(nsd_new_values)
-    nsd_scrape(nsd_missing_values)
-    
 if __name__ == "__main__":
-    print('this is a module. done!')
+    main()

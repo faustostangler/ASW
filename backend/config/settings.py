@@ -26,6 +26,8 @@ fincapital = [
             ]
 last_quarters = ['3', '4']
 all_quarters = ['6', '7']
+cols_b3 = ['nsd', 'tipo', 'setor', 'subsetor', 'segmento', 'company_name', 'quadro', 'quarter', 'conta', 'descricao', 'valor', 'version']
+cols_order = ['tipo', 'company_name', 'conta', 'quarter']
 
 # Selenium settings
 wait_time = 2  # Wait time for Selenium operations
