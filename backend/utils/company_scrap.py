@@ -25,32 +25,32 @@ def get_company_ticker(raw_code):
     Returns:
     dict: A dictionary with company names as keys and a nested dictionary with ticker, pregao, and listagem as values.
     """
-    # Dictionary to store extracted company information
     company_tickers = {}
 
     for inner_html in raw_code:
-        # Parse the raw HTML source code
         soup = BeautifulSoup(inner_html, 'html.parser')
+        card_body_class = 'card-body'
+        cards = soup.find_all('div', class_=card_body_class)
 
-        # Find all the card elements
-        cards = soup.find_all('div', class_='card-body')
-
-        # Loop through each card element and extract the ticker and company name
         for card in cards:
             try:
-                # Extract the ticker and company name from the card element
-                ticker = system.clean_text(card.find('h5', class_='card-title2').text)
-                company_name = system.clean_text(card.find('p', class_='card-title').text)
-                pregao = system.clean_text(card.find('p', class_='card-text').text)
-                listagem = system.clean_text(card.find('p', class_='card-nome').text)
+                ticker_class = 'card-title2'
+                company_name_class = 'card-title'
+                pregao_class = 'card-text'
+                listagem_class = 'card-nome'
+
+                ticker = system.clean_text(card.find('h5', class_=ticker_class).text)
+                company_name = system.clean_text(card.find('p', class_=company_name_class).text)
+                pregao = system.clean_text(card.find('p', class_=pregao_class).text)
+                listagem = system.clean_text(card.find('p', class_=listagem_class).text)
+
                 if listagem:
                     for abbr, full_name in settings.governance_levels.items():
                         new_listagem = system.clean_text(listagem.replace(abbr, full_name))
                         if new_listagem != listagem:
                             listagem = new_listagem
-                            break  # Break out of the loop if a replacement was made
+                            break
 
-                # Append the ticker and company name to the keyword list
                 company_tickers[company_name] = {
                     'ticker': ticker,
                     'pregao': pregao,
@@ -63,7 +63,7 @@ def get_company_ticker(raw_code):
 
 def get_raw_code(driver, driver_wait, url=settings.companies_url):
     """
-    Retrieves raw HTML code from B3 website.
+    Retrieves raw HTML code from the B3 website.
 
     Parameters:
     - driver: The Selenium WebDriver instance.
@@ -74,27 +74,31 @@ def get_raw_code(driver, driver_wait, url=settings.companies_url):
     list: A list of raw HTML strings.
     """
     try:
-        # Get the total number of companies and pages
-        driver.get(url)
-        batch = system.choose(f'//*[@id="selectPage"]', driver, driver_wait)
+        select_page_xpath = '//*[@id="selectPage"]'
+        pagination_xpath = '//*[@id="listing_pagination"]/pagination-template/ul'
+        nav_bloc_xpath = '//*[@id="nav-bloco"]/div'
+        next_page_xpath = '//*[@id="listing_pagination"]/pagination-template/ul/li[10]/a'
 
-        xpath = '//*[@id="listing_pagination"]/pagination-template/ul'
-        text = system.text(xpath, driver_wait)
-        pages = re.findall(r'\d+', text)
-        pages = list(map(int, pages))
-        pages = max(pages) - 1
+        driver.get(url)
+        batch = system.choose(select_page_xpath, driver, driver_wait)
+
+        text = system.text(pagination_xpath, driver_wait)
+        pages = list(map(int, re.findall(r'\d+', text)))
+        total_pages = max(pages) - 1
 
         raw_code = []
-        start_time = time.time()
-        for i, page in enumerate(range(0, pages + 1)):
-            xpath = '//*[@id="nav-bloco"]/div'
-            system.wait_forever(driver_wait, xpath)
-            inner_html = system.raw_text(xpath, driver_wait)
+        start_time = time.time()  # Start time is relevant for the loop below
+
+        for i, page in enumerate(range(0, total_pages + 1)):
+            system.wait_forever(driver_wait, nav_bloc_xpath)
+            inner_html = system.raw_text(nav_bloc_xpath, driver_wait)
             raw_code.append(inner_html)
-            if i != pages:
-                system.click(f'//*[@id="listing_pagination"]/pagination-template/ul/li[10]/a', driver_wait)
+
+            if i != total_pages:
+                system.click(next_page_xpath, driver_wait)
+            
             extra_info = [f'page {page + 1}']
-            system.print_info(i, 0, pages, extra_info, start_time, pages + 1)
+            system.print_info(i, extra_info, start_time, total_pages + 1)
 
     except Exception as e:
         system.log_error(e)
@@ -113,6 +117,7 @@ def get_existing_companies(db_name):
     set: A set of company names already in the database.
     """
     db_path = os.path.join(settings.db_folder, db_name)
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
@@ -134,19 +139,17 @@ def save_to_db(data, db_name='company_info.db'):
         if not data:
             return
 
-        # Backup existing database
         base_name, ext = os.path.splitext(db_name)
         backup_name = f"{base_name} backup{ext}"
         db_path = os.path.join(settings.db_folder, db_name)
         backup_path = os.path.join(settings.db_folder, backup_name)
+
         if os.path.exists(db_path):
             shutil.copy2(db_path, backup_path)
 
-        # Connect to the database
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        # Create table if it doesn't exist
         cursor.execute('''CREATE TABLE IF NOT EXISTS company_info (
                             company_name TEXT PRIMARY KEY,
                             ticker TEXT,
@@ -163,7 +166,6 @@ def save_to_db(data, db_name='company_info.db'):
                             isin_codes TEXT,
                             escriturador TEXT)''')
 
-        # Insert or update records
         for info in data:
             cursor.execute('''INSERT INTO company_info (company_name, ticker, pregao, listagem, cvm_code, activity, setor, subsetor, segmento, cnpj, website, ticker_codes, isin_codes, escriturador)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -186,7 +188,6 @@ def save_to_db(data, db_name='company_info.db'):
                              ','.join(info.get('ticker_codes', [])), ','.join(info.get('isin_codes', [])), 
                              info.get('escriturador', '')))
 
-        # Commit and close the connection
         conn.commit()
         conn.close()
 
@@ -204,42 +205,42 @@ def extract_company_data(detail_soup):
     Returns:
     dict: A dictionary containing the extracted company information.
     """
+    ticker_table_id = 'accordionBody2'
+    cnpj_text = 'CNPJ'
+    activity_text = 'Atividade Principal'
+    sector_classification_text = 'Classificação Setorial'
+    website_text = 'Site'
+    escriturador_text = 'Escriturador'
+
     company_info = detail_soup.find('div', class_='card-body')
 
-    # Extract ticker codes and ISIN codes from the specified XPath
     ticker_codes = []
     isin_codes = []
-    accordion_body = detail_soup.find('div', {'id': 'accordionBody2'})
-    if (accordion_body):
+
+    accordion_body = detail_soup.find('div', {'id': ticker_table_id})
+    if accordion_body:
         rows = accordion_body.find_all('tr')
-        for row in rows[1:]:  # Skip the header row
+        for row in rows[1:]:
             cols = row.find_all('td')
             if len(cols) > 1:
                 ticker_codes.append(system.clean_text(cols[0].text))
                 isin_codes.append(system.clean_text(cols[1].text))
-    if len(ticker_codes) > 1:
-        pass
-    # Extract CNPJ
-    cnpj_element = company_info.find(text='CNPJ')
+
+    cnpj_element = company_info.find(text=cnpj_text)
     cnpj = re.sub(r'\D', '', cnpj_element.find_next('p', class_='card-linha').text) if cnpj_element else ''
     
-    # Extract Activity
-    activity_element = company_info.find(text='Atividade Principal')
+    activity_element = company_info.find(text=activity_text)
     activity = activity_element.find_next('p', class_='card-linha').text if activity_element else ''
     
-    # Extract Sector Classification
-    sector_element = company_info.find(text='Classificação Setorial')
+    sector_element = company_info.find(text=sector_classification_text)
     sector_classification = sector_element.find_next('p', class_='card-linha').text if sector_element else ''
     
-    # Extract Website
-    website_element = company_info.find(text='Site')
+    website_element = company_info.find(text=website_text)
     website = website_element.find_next('a').text if website_element else ''
     
-    # Extract Escriturador
-    escriturador_element = detail_soup.find(text='Escriturador')
+    escriturador_element = detail_soup.find(text=escriturador_text)
     escriturador = escriturador_element.find_next('span').text.strip() if escriturador_element else ''
 
-    # Splitting sector classification into three levels
     sectors = sector_classification.split('/')
     setor = system.clean_text(sectors[0].strip()) if len(sectors) > 0 else ''
     subsetor = system.clean_text(sectors[1].strip()) if len(sectors) > 1 else ''
@@ -274,75 +275,63 @@ def get_company_info(driver, driver_wait, company_tickers):
     """
     all_company_info = {}
     total_companies = len(company_tickers)
-    start_time = time.time()
-    all_data = []
-
-    # Get existing companies from the database
     existing_companies = get_existing_companies(settings.db_name)
 
-    # Filter out the companies that are already in the database
     companies_to_process = {name: info for name, info in company_tickers.items() if name not in existing_companies}
     total_companies_to_process = len(companies_to_process)
+    
+    start_time = time.time()  # Start time is set at the beginning of the loop
 
     for i, (company_name, info) in enumerate(companies_to_process.items()):
         try:
-            # Open the search page
             driver.get(settings.company_url)
 
-            # Wait for the search field and enter the company name
             search_field_xpath = '//*[@id="keyword"]'
-            search_field = system.wait_forever(driver_wait, search_field_xpath)
+            nav_tab_content_xpath = '//*[@id="nav-tabContent"]'
+            card_body_class = 'card-body'
+            overview_xpath = '//*[@id="divContainerIframeB3"]/app-companies-overview/div/div[1]/div/div'
 
+            search_field = system.wait_forever(driver_wait, search_field_xpath)
             search_field.clear()
             search_field.send_keys(company_name)
-            search_field.send_keys(Keys.RETURN)  # Press Enter key
+            search_field.send_keys(Keys.RETURN)
 
-            # Wait for the search results to load
-            xpath = '//*[@id="nav-tabContent"]'
-            system.wait_forever(driver_wait, xpath)
+            system.wait_forever(driver_wait, nav_tab_content_xpath)
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            cards = soup.find_all('div', class_='card-body')
+            cards = soup.find_all('div', class_=card_body_class)
 
             company_found = False
             for card in cards:
                 card_ticker = system.clean_text(card.find('h5', class_='card-title2').text)
                 if card_ticker == info['ticker']:
-                    # Click on the matching card
                     card_xpath = f'//h5[text()="{card_ticker}"]'
                     system.click(card_xpath, driver_wait)
                     
-                    # Wait for the company details page to load
-                    xpath = '//*[@id="divContainerIframeB3"]/app-companies-overview/div/div[1]/div/div'
-                    system.wait_forever(driver_wait, xpath)
+                    system.wait_forever(driver_wait, overview_xpath)
 
-                    # Extract the current URL to get the CVM code
                     match = re.search(r'/main/(\d+)/', driver.current_url)
                     cvm_code = match.group(1) if match else ''
                     info['cvm_code'] = cvm_code
 
                     detail_soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-                    # Extract detailed company information
                     company_data = extract_company_data(detail_soup)
 
                     info.update(company_data)
                     company_found = True
-                    break  # Break out of the loop once the company is found
+                    break
 
         except Exception as e:
             system.log_error(f"Error processing company {company_name}: {e}")
             pass
 
-        # Call print_info function to print progress
         all_company_info[company_name] = info
         extra_info = [info['ticker'], info['cvm_code'], company_name]
-        system.print_info(i, 0, total_companies_to_process, extra_info, start_time, total_companies_to_process)
+        system.print_info(i, extra_info, start_time, total_companies_to_process)
 
-        # Collect all data for batch saving
         all_data.append({'company_name': company_name, **info})
 
-        # Save to DB every settings.batch_size iterations or at the end
-        if (i + 1) % (settings.batch_size // 5) == 0 or i == total_companies - 1:
+        if (total_companies_to_process - i - 1) % (settings.batch_size // 5) == 0 or i == total_companies - 1:
             save_to_db(all_data, settings.db_name)
             all_data.clear()
 
@@ -351,7 +340,16 @@ def get_company_info(driver, driver_wait, company_tickers):
     return all_company_info
 
 def main(driver, driver_wait):
-    # Scrape company information
+    """
+    Main function to initiate the scraping of company information.
+
+    Parameters:
+    - driver: The Selenium WebDriver instance.
+    - driver_wait: The WebDriverWait instance.
+    
+    Returns:
+    dict: A dictionary with detailed company information.
+    """
     raw_code = get_raw_code(driver, driver_wait, settings.companies_url)
     company_tickers = get_company_ticker(raw_code)
     company_info = get_company_info(driver, driver_wait, company_tickers)
@@ -359,28 +357,4 @@ def main(driver, driver_wait):
     return company_info
 
 if __name__ == "__main__":
-    # # Initialize Selenium WebDriver
-    # driver, driver_wait = selenium_driver.get_driver()
-
-    # # Retrieve raw HTML code from B3 website
-    # raw_code = get_raw_code(driver, driver_wait, settings.companies_url)
-    
-    # # Extract company tickers and names
-    # company_tickers = get_company_ticker(raw_code)
-
-    # # Quit the WebDriver session
-    # driver.quit()
-
-    # # Convert company tickers to DataFrame
-    # companies_df = pd.DataFrame(company_tickers, columns=['ticker', 'company_name', 'pregao', 'listagem'])
-    # companies_df.to_csv('company_data.csv', index=False)
-
-    # # Print completion message
-    # print("Data saved to company_data.csv")
-
-
-    print('this is a module. done!')
-
-
-
-
+    print('This is a module, not meant to be run directly.')

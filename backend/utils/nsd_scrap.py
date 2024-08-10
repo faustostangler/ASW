@@ -21,7 +21,6 @@ def load_db(db_path, columns=settings.cols_b3):
 
     # Check if the database file exists
     if not os.path.exists(db_path):
-        # If the file doesn't exist, return an empty DataFrame
         return pd.DataFrame(columns=columns)
     
     # Connect to the SQLite database and load the data into a DataFrame
@@ -33,7 +32,6 @@ def load_db(db_path, columns=settings.cols_b3):
     df_existing[quarter_column] = pd.to_datetime(df_existing[quarter_column], errors='coerce')
     df_existing.dropna(subset=[quarter_column], inplace=True)
     
-    # Return the processed DataFrame
     return df_existing
 
 def identify_records(db_file_path):
@@ -52,15 +50,15 @@ def identify_records(db_file_path):
         # Hard-coded variables
         key_columns = ['company_name', 'tipo', 'quadro', 'conta', 'year']
         sort_columns = ['company_name', 'quarter', 'tipo', 'conta']
-        
+
         # Load the current data from the regular database file
         new_data = load_db(db_file_path)
-        new_data = new_data[settings.cols_b3].copy()  # Use only relevant columns
+        new_data = new_data[settings.cols_b3].copy()
 
         # Load the existing calculated data from the corresponding math.db file
         calculated_data = load_db(db_file_path.replace('.db', ' math.db'))
-        calculated_data = calculated_data[settings.cols_b3].copy()  # Use only relevant columns
-        
+        calculated_data = calculated_data[settings.cols_b3].copy()
+
         # Add 'year' column and 'conta_prefix' column if the DataFrame is not empty
         if not calculated_data.empty:
             calculated_data['year'] = calculated_data['quarter'].dt.year
@@ -76,12 +74,12 @@ def identify_records(db_file_path):
             new_data['year'] = pd.Series(dtype='int')
             new_data['conta_prefix'] = pd.Series(dtype='str')
 
-        # Identify records that do NOT require special calculations as no_math_new_data (not in last_quarters nor in all_quarters)
+        # Identify records that do NOT require special calculations
         no_math_new_data = new_data[new_data['conta_prefix'].isin(
             set(new_data['conta_prefix']) - set(settings.last_quarters) - set(settings.all_quarters)
         )]
 
-        # Identify records that DO require special calculations as math_needed
+        # Identify records that DO require special calculations
         math_needed = new_data[~new_data.index.isin(no_math_new_data.index)]
 
         # Merge the current and existing data to find both new and calculated records
@@ -107,7 +105,7 @@ def identify_records(db_file_path):
         return df_to_calculate[settings.cols_b3], df_calculated[settings.cols_b3]
     
     except Exception as e:
-        # system.log_error(e)
+        system.log_error(e)
         return pd.DataFrame(columns=settings.cols_b3), pd.DataFrame(columns=settings.cols_b3)
 
 def process_database(db_file_path):
@@ -121,14 +119,13 @@ def process_database(db_file_path):
     - DataFrame: DataFrame containing the final processed and transformed data.
     """
     try:
-        # Column name for quarter and columns used for grouping data
+        # Hard-coded variables
         grouping_columns = ['company_name', 'tipo', 'quadro', 'conta', 'quarter']
         sort_columns = ['company_name', 'quarter', 'tipo', 'conta']
 
         # Identify new records that need processing and already calculated records
         records_to_calculate, already_calculated_records = identify_records(db_file_path)
         
-        # If there are no new records, return the already calculated records
         if records_to_calculate.empty:
             return already_calculated_records
 
@@ -136,13 +133,13 @@ def process_database(db_file_path):
         records_to_calculate = records_to_calculate[settings.cols_b3].sort_values(by=sort_columns)
         grouped_records = records_to_calculate.groupby(grouping_columns)
         
-        # List to hold all the processed data
+        # Lists to hold processed data and accumulate data before clearing
         calculated_data_groups = []
-        accumulated_data = []  # List to accumulate all processed data before clearing
-        total_groups = len(grouped_records)
-        start_time = time.time()
+        accumulated_data = []
 
-        # Process each group, applying the necessary mathematical transformations
+        total_groups = len(grouped_records)
+        start_time = time.time()  # Start time initialized at the beginning of the loop
+
         for index, (_, group) in enumerate(grouped_records):
             # Extract the first digit of the 'conta' to determine the calculation logic
             conta_prefix = group['conta'].iloc[0][0]
@@ -155,28 +152,22 @@ def process_database(db_file_path):
             # Print progress information and save data at regular intervals or at the end
             if (total_groups - index - 1) % (settings.batch_size * 20 * 5) == 0 or index == total_groups - 1:
                 extra_info = [row['company_name'], row['quarter'].strftime('%Y-%m-%d')]
-                system.print_info(index, total_groups, total_groups, extra_info, start_time=start_time, size=total_groups)
+                system.print_info(index, extra_info, start_time=start_time, total_size=total_groups)
 
                 # Concatenate processed data groups and save to the database
                 partial_transformed_data = pd.concat(calculated_data_groups).reset_index(drop=True)
                 partial_transformed_data = save_db(partial_transformed_data, db_file_path.replace('.db', ' math.db'))
                 
-                # Accumulate the saved data before clearing
                 accumulated_data.append(partial_transformed_data)
-                
-                # Clear the list to free memory after saving
                 calculated_data_groups.clear()
 
-        # Filter out empty or all-NA DataFrames before concatenating
         non_empty_accumulated_data = [df for df in accumulated_data if not df.empty and not df.isna().all().all()]
 
-        # Combine all accumulated data with the already calculated records
         if non_empty_accumulated_data:
             final_result = pd.concat(non_empty_accumulated_data + [already_calculated_records]).reset_index(drop=True)
             return final_result
 
     except Exception as e:
-        # Log any errors that occur during processing
         system.log_error(e)
         return pd.DataFrame()
 
@@ -198,13 +189,10 @@ def apply_b3_math(df_group, conta_prefix):
         quarter_column = 'quarter'
         value_column = 'valor'
 
-        # Check if the 'conta' prefix indicates that B3 math should be applied
         if conta_prefix in settings.last_quarters or conta_prefix in settings.all_quarters:
-            # Initialize dictionaries to store the indices and values for each quarter
             quarter_indices = {quarter: None for quarter in quarter_columns}
             quarter_values = {quarter: 0 for quarter in quarter_columns}
 
-            # Iterate over each quarter and find the maximum value for each
             for month, quarter_name in month_to_quarter_map.items():
                 try:
                     df_quarter = df_group[df_group[quarter_column].dt.month == month]
@@ -212,19 +200,15 @@ def apply_b3_math(df_group, conta_prefix):
                         quarter_indices[quarter_name] = df_quarter.index[0]
                         quarter_values[quarter_name] = df_quarter[value_column].max()
                 except Exception as e:
-                    # Log any errors that occur during the calculation
                     system.log_error(e)
 
-            # Extract the indices and values for each quarter
             i3, v3 = quarter_indices['March'], quarter_values['March']
             i6, v6 = quarter_indices['June'], quarter_values['June']
             i9, v9 = quarter_indices['September'], quarter_values['September']
             i12, v12 = quarter_indices['December'], quarter_values['December']
 
-            # Nested function to apply B3-specific math logic based on the 'conta' prefix
             def apply_math_logic(v3, v6, v9, v12):
                 try:
-                    # Adjust the values for the last quarter or all quarters depending on the prefix
                     if conta_prefix in settings.last_quarters:
                         v12 -= (v9 + v6 + v3)
                     elif conta_prefix in settings.all_quarters:
@@ -235,22 +219,17 @@ def apply_b3_math(df_group, conta_prefix):
                     system.log_error(e)
                 return v3, v6, v9, v12
 
-            # Apply the logic to update the values
             v3, v6, v9, v12 = apply_math_logic(v3, v6, v9, v12)
 
-            # Nested function to update the DataFrame with the new calculated values
             def update_quarter_values():
                 for quarter_name, idx in quarter_indices.items():
                     if idx is not None:
                         df_group.loc[idx, value_column] = quarter_values[quarter_name]
 
-            # Update the DataFrame with the new values
             update_quarter_values()
 
-        # Return the updated DataFrame
         return df_group
     except Exception as e:
-        # Log any errors that occur during the calculation
         system.log_error(e)
         return df_group
 
@@ -263,15 +242,9 @@ def save_db(df, db_file_path):
     - db_file_path (str): Path to the database file.
     """
     try:
-        # Create a connection to the database
         conn = sqlite3.connect(db_file_path)
-        
-        # Save the DataFrame to the database, appending to the existing table or replacing it
         df.to_sql('finsheet', conn, if_exists='append', index=False)
-        
-        # Close the database connection
         conn.close()
-        
         return df
 
     except Exception as e:
@@ -288,7 +261,7 @@ def main():
         db_folder = settings.db_folder_short
         db_name = settings.db_name
         backup_keyword = 'backup'
-        math_keyword = 'math'
+        math_keyword = ' math'  # Updated to include leading space
 
         # Construct paths and file names
         database_folder = os.path.join(base_directory, db_folder)
@@ -310,28 +283,22 @@ def main():
 
         # Iterate over each valid database file and process it
         for file_index, db_file_path in enumerate(valid_database_files):
-            # Print progress information
-            system.print_info(file_index, total_files, total_files, extra_info=[db_file_path], start_time=start_time, size=total_files)
+            system.print_info(file_index, extra_info=[db_file_path], start_time=start_time, total_size=total_files)
             
-            # Process the database and save the transformed data
             df_processed_math = process_database(db_file_path)
- 
+
             if not df_processed_math.empty:
                 all_processed_math_data.append(df_processed_math)
 
-        # Concatenate all non-empty processed DataFrames into a single DataFrame
         if all_processed_math_data:
             final_concatenated_data = pd.concat(all_processed_math_data).reset_index(drop=True)
         else:
-            final_concatenated_data = pd.DataFrame()  # Empty DataFrame if no data was processed
+            final_concatenated_data = pd.DataFrame()
 
-        # The concatenated processed math data
         return final_concatenated_data
 
     except Exception as e:
-        # Log any errors that occur during the main processing
         system.log_error(e)
 
-# Run the main function when the script is executed
 if __name__ == "__main__":
     main()

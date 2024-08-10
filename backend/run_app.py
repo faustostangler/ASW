@@ -20,21 +20,21 @@ if __name__ == "__main__":
         # Initialize the Selenium WebDriver
         driver, driver_wait = selenium_driver.get_driver()
 
-        # Ask the user if they want to scrape company information
+        # # Ask the user if they want to scrape company information
         # scrape_choice = input("Want to scrape company information? (YES/NO): ")
         scrape_choice = 'N'
         if scrape_choice.strip().upper().startswith('Y'):
             company_info = company_scrap.main(driver, driver_wait)
 
-        # Ask the user if they want to scrape company information
-        # nsd_choice = input("Want to get new NSD items? (YES/NO): ")
+        # # Ask the user if they want to scrape company information
+        # nsd_choice = input("Want to update the NSD list? (YES/NO): ")
         nsd_choice = 'Y'
         if nsd_choice.strip().upper().startswith('Y'):
             # Scrape NSD values
-            nsd_scrap.main()
+            df = nsd_scrap.main()
 
         # Scrape Financial Sheets
-        # nsd_list_choice = input("Want to download new NSD items? (YES/NO): ")
+        # nsd_list_choice = input("Want to download new NSD items from the NSD list? (YES/NO): ")
         nsd_list_choice = 'Y'
         if nsd_list_choice.strip().upper().startswith('Y'):
             all_math = finsheet_scrap.main(driver, driver_wait, batch_size=settings.big_batch_size, batch=None)

@@ -17,166 +17,204 @@ from config import settings
 
 def get_chromedriver_path():
     """
-    Defines the base path where the chromedriver will be downloaded,
-    constructs the URL for the ChromeDriver based on the Chrome version,
-    creates the directory if it does not exist, and
-    downloads and extracts ChromeDriver to the specified directory.
-    
+    Download and extract the ChromeDriver based on the Chrome version installed on the system.
+
+    This function determines the correct version of ChromeDriver based on the installed Chrome version,
+    downloads the ChromeDriver, and extracts it to a specified directory.
+
     Returns:
-    str: Path to the ChromeDriver executable.
+        str: The path to the ChromeDriver executable.
     """
+    # Hardcoded variables
+    bin_folder = 'bin'
+
     try:
-        # Define the base path where the chromedriver will be downloaded
+        # Define the base path for ChromeDriver download and extraction
         base_path = Path(__file__).resolve().parent.parent
-        path = base_path / 'bin'
+        path = base_path / bin_folder
         
-        # Get the version of Chrome installed on the system
+        # Get the installed Chrome version
         chrome_version = get_chrome_version()
         
-        # Construct the URL for the ChromeDriver based on the Chrome version
+        # Construct the URL to download the appropriate ChromeDriver version
         chromedriver_url = get_chromedriver_url(chrome_version)
         
         # Create the directory if it does not exist
         path.mkdir(parents=True, exist_ok=True)
         
-        # Download and extract ChromeDriver to the specified directory
+        # Download and extract ChromeDriver
         chromedriver_path = download_and_extract_chromedriver(chromedriver_url, path)
         return chromedriver_path
+
     except Exception as e:
         system.log_error(e)
         return None
 
 def get_chrome_version():
     """
-    Queries the Windows Registry to get the installed Chrome version.
-    
+    Retrieve the version of Chrome installed on the system.
+
     Returns:
-    str: Chrome version.
+        str: The Chrome version, or None if not found.
     """
+    # Possible registry keys to check
+    registry_paths = [
+        r'reg query "HKEY_CURRENT_USER\Software\Google\Chrome\BLBeacon" /v version',
+        r'reg query "HKEY_LOCAL_MACHINE\Software\Google\Chrome\BLBeacon" /v version',
+        r'reg query "HKEY_LOCAL_MACHINE\Software\WOW6432Node\Google\Chrome\BLBeacon" /v version'
+    ]
+    
+    for reg_query in registry_paths:
+        try:
+            # Query the Windows Registry for Chrome version
+            output = subprocess.check_output(reg_query, shell=True)
+            # Extract and return the version number from the registry output
+            version = re.search(r'\d+\.\d+\.\d+\.\d+', output.decode('utf-8')).group(0)
+            return version
+        except subprocess.CalledProcessError as e:
+            # Continue to the next registry key if this one fails
+            continue
+
+    # If registry queries fail, fallback to querying the Chrome executable directly
     try:
-        # Query the Windows Registry to get the installed Chrome version
-        output = subprocess.check_output(
-            r'reg query "HKEY_CURRENT_USER\Software\Google\Chrome\BLBeacon" /v version',
-            shell=True
-        )
-        # Extract the version number from the registry output
+        # Path to the default Chrome executable (adjust if Chrome is installed elsewhere)
+        chrome_path = r'C:\Program Files\Google\Chrome\Application\chrome.exe'
+        
+        # Check if Chrome is installed at the default location
+        if not os.path.exists(chrome_path):
+            chrome_path = r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+        
+        # Run the Chrome executable with the version flag
+        output = subprocess.check_output([chrome_path, '--version'], shell=True)
         version = re.search(r'\d+\.\d+\.\d+\.\d+', output.decode('utf-8')).group(0)
         return version
+
     except Exception as e:
-        system.log_error(e)
+        system.log_error(f"Failed to retrieve Chrome version: {e}")
         return None
 
 def get_chromedriver_url(version):
     """
-    Constructs the URL for downloading the ChromeDriver based on the Chrome version.
-    
-    Parameters:
-    - version (str): Chrome version.
-    
+    Generate the download URL for ChromeDriver based on the Chrome version.
+
+    Args:
+        version (str): The Chrome version.
+
     Returns:
-    str: URL to download ChromeDriver.
+        str: The URL for downloading the corresponding ChromeDriver.
     """
+    # Hardcoded URL template
+    url = f"https://storage.googleapis.com/chrome-for-testing-public/{version}/win64/chromedriver-win64.zip"
+
     try:
-        url = f"https://storage.googleapis.com/chrome-for-testing-public/{version}/win64/chromedriver-win64.zip"
-        
+        # Make an HTTP request to get the ChromeDriver
         response = requests.get(url)
         if response.status_code == 200:
             return url
         else:
             print(f"Error obtaining ChromeDriver for version {version}")
             return None
+
     except Exception as e:
         system.log_error(e)
         return None
 
 def download_and_extract_chromedriver(url, dest_folder):
     """
-    Downloads and extracts the ChromeDriver zip file to the specified directory.
-    
-    Parameters:
-    - url (str): URL to download ChromeDriver.
-    - dest_folder (Path): Destination folder to extract ChromeDriver.
-    
+    Download and extract ChromeDriver from the given URL.
+
+    Args:
+        url (str): The URL for downloading ChromeDriver.
+        dest_folder (Path): The destination folder for extraction.
+
     Returns:
-    str: Path to the extracted ChromeDriver executable.
+        str: The path to the extracted ChromeDriver executable.
     """
     try:
+        # Download the ChromeDriver zip file
         response = requests.get(url)
         zip_path = os.path.join(dest_folder, 'chromedriver.zip')
         
+        # Save the downloaded content to a zip file
         with open(zip_path, 'wb') as file:
             file.write(response.content)
         
-        # Extract the contents of the zip file
+        # Extract the ChromeDriver archive
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(dest_folder)
         
-        # Remove the zip file after extraction
+        # Remove the downloaded zip file
         os.remove(zip_path)
         
-        # Construct the path to the extracted ChromeDriver executable
+        # Return the path to the extracted ChromeDriver executable
         chromedriver_path = dest_folder / 'chromedriver-win64' / 'chromedriver.exe'
         return str(chromedriver_path.resolve())
+
     except Exception as e:
         system.log_error(e)
         return None
 
 def load_driver(chromedriver_path):
     """
-    Sets up the ChromeDriver service and options, and
-    creates and returns a new instance of the Chrome WebDriver.
-    
-    Parameters:
-    - chromedriver_path (str): Path to the ChromeDriver executable.
-    
+    Initialize and return the Selenium WebDriver and WebDriverWait instances.
+
+    Args:
+        chromedriver_path (str): The path to the ChromeDriver executable.
+
     Returns:
-    tuple: WebDriver instance and WebDriverWait instance.
+        tuple: A tuple containing the WebDriver and WebDriverWait instances.
     """
     try:
+        # Initialize the ChromeDriver service
         chrome_service = Service(chromedriver_path)
+        
+        # Set Chrome options
         chrome_options = Options()
-        # Uncomment the following line to run Chrome in headless mode
-        # chrome_options.add_argument("--headless")
-        chrome_options.add_argument('start-maximized')  # Maximize the window on startup.
+        # chrome_options.add_argument('start-maximized')  # Maximize window on startup
+        chrome_options.add_argument("window-size=960,540")
         chrome_options.add_argument("--ignore-certificate-errors")
         chrome_options.add_argument("--log-level=3")
         chrome_options.add_argument('--ignore-ssl-errors')
-        # chrome_options.add_argument('--disable-logging')
+        chrome_options.add_argument("--disable-infobars")
+        # chrome_options.add_argument("--headless")
 
-        # Create and return a new instance of the Chrome WebDriver
+        # Initialize WebDriver
         driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 
-        # Define the exceptions to ignore during WebDriverWait.
+        # Define exceptions to ignore during WebDriverWait
         exceptions_ignore = (NoSuchElementException, StaleElementReferenceException)
-        
-        # Create a WebDriverWait instance for the driver, using the specified wait time and exceptions to ignore.
         driver_wait = WebDriverWait(driver, settings.wait_time, ignored_exceptions=exceptions_ignore)
 
         return driver, driver_wait
+
     except Exception as e:
         system.log_error(e)
         return None, None
 
 def get_driver():
     """
-    Defines the path to the ChromeDriver executable, and
-    loads and returns the Chrome WebDriver.
-    
+    Obtain the Selenium WebDriver and WebDriverWait instances.
+
+    This function either uses a predefined path to ChromeDriver or fetches and loads it dynamically.
+
     Returns:
-    tuple: WebDriver instance and WebDriverWait instance.
+        tuple: A tuple containing the WebDriver and WebDriverWait instances.
     """
     try:
-        # Define the path to the ChromeDriver executable
-        chromedriver_path = r'D:\Fausto Stangler\Documentos\Python\ASW\backend\bin\chromedriver-win64\chromedriver.exe'
-        # Alternatively, use the function to get the ChromeDriver path
-        # chromedriver_path = get_chromedriver_path()
-        
-        # Load and return the Chrome WebDriver
+        # # Hardcoded ChromeDriver path
+        chromedriver_path = r'D:\\Fausto Stangler\\Documentos\\Python\\ASW\\backend\\bin\\chromedriver-win64\\chromedriver.exe'        
+
+        # Alternatively, dynamically obtain the ChromeDriver path
+        chromedriver_path = get_chromedriver_path()
+        print(chromedriver_path)
+
+        # Load the WebDriver and return it
         driver, driver_wait = load_driver(chromedriver_path)
         return driver, driver_wait
+
     except Exception as e:
         system.log_error(e)
         return None, None
 
 if __name__ == "__main__":
-    print('this is a module. done!')
+    print('This is a module, not meant to be run directly.')

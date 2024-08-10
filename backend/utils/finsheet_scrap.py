@@ -524,7 +524,7 @@ def main(driver, driver_wait, batch_size=settings.big_batch_size, batch=None):
     if not df_nsd.empty:
         if batch is None:
             # Retrieve NSD data based on criteria
-                finsheet_scrape(driver, driver_wait, df_nsd)
+                finsheet = finsheet_scrape(driver, driver_wait, df_nsd)
         else:
             # Retrieve NSD data based on criteria and batch
             start_idx = batch * batch_size

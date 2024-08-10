@@ -33,7 +33,11 @@ def clean_text(text):
     str: The cleaned and normalized text.
     """
     try:
-        text = unidecode.unidecode(text).translate(str.maketrans('', '', string.punctuation)).upper().strip()
+        # Define translation table for punctuation removal
+        translation_table = str.maketrans('', '', string.punctuation)
+        
+        # Normalize and clean the text
+        text = unidecode.unidecode(text).translate(translation_table).upper().strip()
         text = re.sub(r'\s+', ' ', text)
     except Exception as e:
         log_error(e)
@@ -53,8 +57,8 @@ def text(xpath, driver_wait):
     try:
         # Wait until the element is present, then retrieve its text.
         element = wait_forever(driver_wait, xpath)
-        text = element.text
-        return text
+        element_text = element.text
+        return element_text
     except Exception as e:
         log_error(e)
         return ''
@@ -92,16 +96,17 @@ def choose(xpath, driver, driver_wait):
     int: The value of the selected option, or an empty string if an exception occurs.
     """
     try:
+        # Wait until the element is present and click to select
         element = wait_forever(driver_wait, xpath)
         element.click()
         
-        # Get the Select object for the element, find the maximum option value, and select it.
+        # Create a Select object and select the highest option value
         select = Select(driver.find_element(By.XPATH, xpath))
-        options = [int(x.text) for x in select.options]
-        batch = str(max(options))
-        select.select_by_value(batch)
+        options = [int(option.text) for option in select.options]
+        highest_option = str(max(options))
+        select.select_by_value(highest_option)
         
-        return int(batch)
+        return int(highest_option)
     except Exception as e:
         log_error(e)
         return ''
@@ -142,11 +147,10 @@ def wait_forever(driver_wait, xpath):
     while True:
         try:
             element = driver_wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
-            break
-        except Exception as e:
-            # log_error(e)
-            time.sleep(settings.wait_time)  # Wait for a specified time and try again
-    return element
+            return element
+        except Exception:
+            # Pause and retry if the element is not found
+            time.sleep(settings.wait_time)
 
 def link(xpath, driver_wait):
     """
@@ -201,53 +205,43 @@ def winbeep(frequency=5000, duration=50):
     winsound.Beep(frequency, duration)
     return True
 
-def print_info(i, start, end, extra_info, start_time, size):
+def print_info(current_index, extra_info, start_time, total_size):
     """
     Prints the provided information along with progress and remaining time.
 
     Parameters:
-    - i (int): The current item index.
-    - start (int): The start value of the current batch.
-    - end (int): The end value of the current batch.
+    - current_index (int): The current item index.
     - extra_info (list): The extracted extra information containing multiple values.
     - start_time (float): The start time of the process.
-    - size (int): The total number of items to process.
+    - total_size (int): The total number of items to process.
     """
-    # Calculate remaining time and progress
-    counter = i + 1
-    remaining_items = size - counter
+    # Calculate progress and timing metrics
+    completed_items = current_index + 1
+    remaining_items = total_size - completed_items
+    percentage_completed = completed_items / total_size
     
-    # Calculate the percentage of completion
-    percentage = counter / size
-    
-    # Calculate the elapsed time
-    running_time = time.time() - start_time
-    
-    # Calculate the average time taken per item
-    avg_time_per_item = running_time / counter
-    
-    # Calculate the remaining time based on the average time per item
+    elapsed_time = time.time() - start_time
+    avg_time_per_item = elapsed_time / completed_items
     remaining_time = remaining_items * avg_time_per_item
     
     # Convert remaining time to hours, minutes, and seconds
     hours, remainder = divmod(int(remaining_time), 3600)
     minutes, seconds = divmod(remainder, 60)
     
-    # Format remaining time as a string
+    # Format remaining time and progress as strings
     remaining_time_formatted = f'{int(hours)}h {int(minutes):02}m {int(seconds):02}s'
-    
-    # Create a progress string with all the calculated values
     progress = (
-        f'{percentage:.2%} '
-        f'{counter}+{remaining_items}, '
+        f'{percentage_completed:.2%} '
+        f'{completed_items}/{total_size}, '
         f'{avg_time_per_item:.6f}s per item, '
         f'Remaining: {remaining_time_formatted}'
     )
     
-    # Print the information
-    extra_info = " ".join(map(str, extra_info))
-    print(f"{progress} {extra_info}")
+    # Print the progress information
+    extra_info_str = " ".join(map(str, extra_info))
+    print(f"{progress} {extra_info_str}")
     
+    # Beep to indicate progress
     winbeep()
 
 def get_db_schema(db_name):
@@ -260,7 +254,10 @@ def get_db_schema(db_name):
     Returns:
     dict: A dictionary containing schema information for tables, indexes, views, and triggers.
     """
-    conn = sqlite3.connect(f'{settings.db_folder}/{db_name}')
+    # Define the database path
+    db_path = f'{settings.db_folder}/{db_name}'
+
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
     def get_table_schema(table_name):
@@ -361,7 +358,10 @@ def load_database(db_name):
     Returns:
     dict: A dictionary where each key is a table name and each value is a DataFrame containing the table's data.
     """
-    conn = sqlite3.connect(f'{settings.db_folder}/{db_name}')
+    # Define the database path
+    db_path = f'{settings.db_folder}/{db_name}'
+
+    conn = sqlite3.connect(db_path)
     
     def get_table_names():
         """
