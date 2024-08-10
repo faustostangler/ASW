@@ -83,3 +83,36 @@ tree.txt
 
 # Binary directories
 bin/
+
+# Document files
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.pdf
+*.odt
+*.ods
+*.odp
+*.rtf
+*.txt
+
+# Compressed and archived files
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.bz2
+*.xz
+*.iso
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+
+# Other possible document and archive formats
+*.epub
+*.mobi
+*.jar
+*.war
