@@ -46,6 +46,9 @@ def get_nsd_data(criteria=settings.finsheet_types, db_name=f'{settings.db_folder
         query_company = "SELECT company_name, cvm_code, setor, subsetor, segmento FROM company_info"
         df_company = pd.read_sql_query(query_company, conn)
         
+        # Close the database connection
+        conn.close()
+        
         # Convert necessary columns to string type
         df_company['cvm_code'] = df_company['cvm_code'].astype(str)
         
@@ -72,9 +75,6 @@ def get_nsd_data(criteria=settings.finsheet_types, db_name=f'{settings.db_folder
         df_sorted.loc[df_sorted['setor'] == last_order, 'setor'] = ''
         df_sorted.loc[df_sorted['subsetor'] == last_order, 'subsetor'] = ''
         df_sorted.loc[df_sorted['segmento'] == last_order, 'segmento'] = ''
-        
-        # Close the database connection
-        conn.close()
         
         # Return the sorted DataFrame
         return df_sorted
@@ -141,6 +141,22 @@ def save_to_db(df, base_db_name='b3'):
         # Log any exceptions
         system.log_error(e)
 
+def get_and_clean_value(driver, xpath):
+    """
+    Finds an element by its XPath, retrieves its text, strips whitespace,
+    replaces the decimal and thousand separators, and converts it to a float.
+
+    Parameters:
+    - driver: The Selenium WebDriver instance.
+    - xpath: The XPath string to locate the element.
+
+    Returns:
+    float: The converted float value from the element's text.
+    """
+    element_text = driver.find_element(By.XPATH, xpath).text.strip()
+    element_text = element_text.replace('.', '').replace(',', '.')
+    return float(element_text)
+
 def scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
     """
     Scrapes capital data from the specified page.
@@ -159,6 +175,22 @@ def scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
         # XPaths for selecting group and frame combo boxes
         xpath_grupo = '//*[@id="cmbGrupo"]'
         xpath_quadro = '//*[@id="cmbQuadro"]'
+        xpath_frame = '//*[@id="iFrameFormulariosFilho"]'
+        xpath_thousand = '//*[@id="UltimaTabela"]/table/tbody[1]/tr[1]'
+        thousand = 'Mil'
+        acoes_on_xpath = '//*[@id="QtdAordCapiItgz_1"]'
+        acoes_pn_xpath = '//*[@id="QtdAprfCapiItgz_1"]'
+        acoes_on_tesouraria_xpath = '//*[@id="QtdAordTeso_1"]'
+        acoes_pn_tesouraria_xpath = '//*[@id="QtdAprfTeso_1"]'
+        c_name = 'conta'
+        d_name = 'descricao'
+        v_name = 'valor'
+        conta_descricao = {
+            '00.01.01': 'Ações Ordinárias ON',
+            '00.01.02': 'Ações Preferenciais PN',
+            '00.02.01': 'Ações em Tesouraria Ordinárias ON',
+            '00.02.02': 'Ações em Tesouraria Preferenciais PN'
+        }
 
         # Wait for the group combo box and select the specified value
         element_grupo = system.wait_forever(driver_wait, xpath_grupo)
@@ -171,36 +203,28 @@ def scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
         select_quadro.select_by_visible_text(cmbQuadro)
 
         # Wait for the frame and switch to it
-        xpath = '//*[@id="iFrameFormulariosFilho"]'
-        frame = system.wait_forever(driver_wait, xpath)
-        frame = driver.find_elements(By.XPATH, xpath)
+        frame = system.wait_forever(driver_wait, xpath_frame)
+        frame = driver.find_elements(By.XPATH, xpath_frame)
         driver.switch_to.frame(frame[0])
 
         # Check if values are in thousands
-        thousand = 1
-        xpath_thousand_check = '//*[@id="UltimaTabela"]/table/tbody[1]/tr[1]'
-        element = system.wait_forever(driver_wait, xpath_thousand_check)
-        text = element.text
-        if 'Mil' in text:
+        if thousand in system.wait_forever(driver_wait, xpath_thousand).text:
             thousand = 1000
-
-        # XPaths for scraping share data
-        acoes_on_xpath = '//*[@id="QtdAordCapiItgz_1"]'
-        acoes_pn_xpath = '//*[@id="QtdAprfCapiItgz_1"]'
-        acoes_on_tesouraria_xpath = '//*[@id="QtdAordTeso_1"]'
-        acoes_pn_tesouraria_xpath = '//*[@id="QtdAprfTeso_1"]'
+        else:
+            thousand = 1
 
         # Scrape the share data
-        acoes_on = driver.find_element(By.XPATH, acoes_on_xpath).text.strip().replace('.', '').replace(',', '.')
-        acoes_pn = driver.find_element(By.XPATH, acoes_pn_xpath).text.strip().replace('.', '').replace(',', '.')
-        acoes_on_tesouraria = driver.find_element(By.XPATH, acoes_on_tesouraria_xpath).text.strip().replace('.', '').replace(',', '.')
-        acoes_pn_tesouraria = driver.find_element(By.XPATH, acoes_pn_tesouraria_xpath).text.strip().replace('.', '').replace(',', '.')
+        acoes_on = get_and_clean_value(driver, acoes_on_xpath)
+        acoes_pn = get_and_clean_value(driver, acoes_pn_xpath)
+        acoes_on_tesouraria = get_and_clean_value(driver, acoes_on_tesouraria_xpath)
+        acoes_pn_tesouraria = get_and_clean_value(driver, acoes_pn_tesouraria_xpath)
+
 
         # Prepare data for DataFrame
         data = {
-            'conta': ['00.01.01', '00.01.02', '00.02.01', '00.02.02'],
-            'descricao': ['Ações Ordinárias ON', 'Ações Preferenciais PN', 'Ações em Tesouraria Ordinárias ON', 'Ações em Tesouraria Preferenciais PN'],
-            'valor': [float(acoes_on) * thousand, float(acoes_pn) * thousand, float(acoes_on_tesouraria) * thousand, float(acoes_pn_tesouraria) * thousand]
+            c_name: list(conta_descricao.keys()),
+            d_name: list(conta_descricao.values()),
+            v_name: [float(acoes_on) * thousand, float(acoes_pn) * thousand, float(acoes_on_tesouraria) * thousand, float(acoes_pn_tesouraria) * thousand]
         }
 
         # Create DataFrame from scraped data
@@ -214,7 +238,7 @@ def scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
     
     except Exception as e:
         # Log any exceptions
-        system.log_error(e)
+        # system.log_error(e)
         return None
 
 def scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
@@ -232,9 +256,14 @@ def scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
     DataFrame: A DataFrame containing the scraped data.
     """
     try:
-        # XPaths for selecting group and frame combo boxes
+        # hard coded variables
+        columns = ['conta', 'descricao', 'valor']
         xpath_grupo = '//*[@id="cmbGrupo"]'
         xpath_quadro = '//*[@id="cmbQuadro"]'
+        xpath_frame = '//*[@id="iFrameFormulariosFilho"]'
+        xpath_table = '//*[@id="ctl00_cphPopUp_tbDados"]'
+        xpath_thousand = '//*[@id="TituloTabelaSemBorda"]'
+        thousand = "Mil"
 
         # Wait for the group combo box and select the specified value
         element_grupo = system.wait_forever(driver_wait, xpath_grupo)
@@ -247,35 +276,33 @@ def scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
         select_quadro.select_by_visible_text(cmbQuadro)
 
         # Wait for the frame and switch to it
-        xpath = '//*[@id="iFrameFormulariosFilho"]'
-        frame = system.wait_forever(driver_wait, xpath)
-        frame = driver.find_elements(By.XPATH, xpath)
+        frame = system.wait_forever(driver_wait, xpath_frame)
+        frame = driver.find_elements(By.XPATH, xpath_frame)
         driver.switch_to.frame(frame[0])
 
         # Check if the table is empty
-        xpath_table = '//*[@id="ctl00_cphPopUp_tbDados"]'
         table = driver.find_element(By.XPATH, xpath_table)
         if not table.find_elements(By.TAG_NAME, "tr"):
             driver.switch_to.parent_frame()
             return None
 
         # Determine if the values are in thousands
-        xpath = '//*[@id="TituloTabelaSemBorda"]'
-        thousand_text = driver_wait.until(EC.presence_of_element_located((By.XPATH, xpath))).text
-        thousand = 1000 if "Mil" in thousand_text else 1
+        if thousand in driver_wait.until(EC.presence_of_element_located((By.XPATH, xpath_thousand))).text:
+            thousand = 1000
+        else:
+            thousand = 1
 
         # Read HTML content and parse it into DataFrames
         html_content = driver.page_source
-        df1 = pd.read_html(StringIO(html_content), header=0)[0]
-        df2 = pd.read_html(StringIO(html_content), header=0, thousands='.')[0].fillna(0)
+        df_text = pd.read_html(StringIO(html_content), header=0)[0]
+        df_numbers = pd.read_html(StringIO(html_content), header=0, thousands='.')[0].fillna(0)
 
         # Rename columns and merge DataFrames
-        columns = ['conta', 'descricao', 'valor']
-        df1 = df1.iloc[:,0:3]
-        df2 = df2.iloc[:,0:3]
-        df1.columns = columns
-        df2.columns = columns
-        df = pd.concat([df1.iloc[:, :2], df2.iloc[:, 2:3]], axis=1)
+        df_text = df_text.iloc[:,0:3]
+        df_numbers = df_numbers.iloc[:,0:3]
+        df_text.columns = columns
+        df_numbers.columns = columns
+        df = pd.concat([df_text.iloc[:, :2], df_numbers.iloc[:, 2:3]], axis=1)
 
         # Convert values to numeric and apply the thousand multiplier
         col = df.iloc[:, 2].astype(str)
@@ -290,6 +317,7 @@ def scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter):
         
         # Return the DataFrame
         return df
+
     
     except Exception as e:
         return None
@@ -305,29 +333,34 @@ def load_existing_data(db_folder=settings.db_folder, db_name=settings.db_name):
     Returns:
     DataFrame: DataFrame containing all necessary data for comparison.
     """
+    # Hard-coded variables
+    forbiden_words = [' backup', ' math', '  ']
+    query = "SELECT nsd, company_name, setor, subsetor, segmento, tipo, quadro, quarter, version FROM finsheet"
+    columns = ['nsd', 'company_name', 'setor', 'subsetor', 'segmento', 'tipo', 'quadro', 'quarter', 'version']
+
     base_name, ext = os.path.splitext(db_name)
     base_db_prefix = f"{base_name} "
 
     all_dfs = []
     db_files = glob.glob(f"{db_folder}/{base_db_prefix}*.db")
     
-    valid_db_files = [db_file for db_file in db_files if 'backup' not in db_file]
+    valid_db_files = [db_file for db_file in db_files if all(substring not in db_file for substring in forbiden_words)]
 
     start_time = time.time()
     for i, db_file in enumerate(valid_db_files):
         conn = sqlite3.connect(db_file)
-        query = "SELECT nsd, company_name, tipo, quadro, quarter, version FROM finsheet"
         df = pd.read_sql_query(query, conn)
         conn.close()
         all_dfs.append(df)
         
         extra_info = [db_file]
-    
+        system.print_info(i, 0, len(valid_db_files), extra_info, start_time, len(valid_db_files))
+
     if all_dfs:
         all_dfs = pd.concat(all_dfs, ignore_index=True).drop_duplicates()
         return all_dfs
     else:
-        return pd.DataFrame(columns=['nsd', 'company_name', 'tipo', 'quadro', 'quarter', 'version'])
+        return pd.DataFrame(columns=columns)
 
 def filter_nsd_data(df_nsd):
     """
@@ -340,8 +373,22 @@ def filter_nsd_data(df_nsd):
     Returns:
     DataFrame: Filtered DataFrame with only new or updated rows.
     """
+    columns = ['nsd', 'company_name', 'setor', 'subsetor', 'segmento', 'quarter', 'version']
+    sort_order = {
+        'setor': True, 
+        'subsetor': True, 
+        'segmento': True,
+        'company_name': True,  # True for ascending
+        'quarter': True,       # True for ascending
+        # 'tipo': False,         # False for descending
+        # 'quadro': True         # True for ascending
+        }
+    
     # Load existing data for comparison
+    df_nsd = df_nsd[columns].drop_duplicates().sort_values(by=list(sort_order.keys()), ascending=list(sort_order.values()))
+
     existing_data = load_existing_data(settings.db_folder) 
+    existing_data = existing_data[columns].drop_duplicates().sort_values(by=list(sort_order.keys()), ascending=list(sort_order.values()))
 
     # Ensure 'quarter' columns are in datetime format
     df_nsd.loc[:, 'quarter'] = pd.to_datetime(df_nsd['quarter'], dayfirst=False, errors='coerce').dt.strftime('%Y-%m-%d')
@@ -356,7 +403,7 @@ def filter_nsd_data(df_nsd):
     existing_data_agg.rename(columns={'version': 'max_version_existing'}, inplace=True)
 
     # Merge new NSD data with the aggregated existing data
-    merged = df_nsd.merge(existing_data_agg, on=['company_name', 'quarter'], how='left')
+    merged = pd.merge(df_nsd, existing_data_agg, on=['company_name', 'quarter'], how='left')
 
     # Filter rows where the new version is greater than the existing version or if there is no existing version
     df_nsd_missing = merged[
@@ -378,40 +425,37 @@ def finsheet_scrape(driver, driver_wait, df_nsd):
     Returns:
     DataFrame: DataFrame containing all scraped data.
     """
+    # Hard-coded variables moved to the beginning
+    columns = ['nsd', 'tipo', 'setor', 'subsetor', 'segmento', 'company_name', 'quadro', 'quarter', 'conta', 'descricao', 'valor', 'version']
+    url_template = "https://www.rad.cvm.gov.br/ENET/frmGerenciaPaginaFRE.aspx?NumeroSequencialDocumento={nsd}&CodigoTipoInstituicao=1"
+    sort_columns = ['conta', 'descricao']
+
     # Filter NSD data to get only the new or updated rows
     print('loading database...')
     df_nsd_missing = filter_nsd_data(df_nsd)
-
-    start_time_nsd = time.time()
-    size_nsd = len(df_nsd_missing)
-    counter = 0
-
+    
     all_data = []
 
-    for index, row in df_nsd_missing.iterrows():
-        # Prepare necessary information for scraping
-        quarter = row['quarter']
-        extra_info_nsd = [row['nsd'], row['company_name'], quarter]
-        system.print_info(counter, 0, size_nsd, extra_info_nsd, start_time_nsd, size_nsd)
-        counter += 1
-
+    start_time_nsd = time.time()
+    size_nsd = len(df_nsd)
+    for i, (index, row) in enumerate(df_nsd_missing.iterrows()):
         # Construct URL and navigate to it
-        url = f"https://www.rad.cvm.gov.br/ENET/frmGerenciaPaginaFRE.aspx?NumeroSequencialDocumento={row['nsd']}&CodigoTipoInstituicao=1"
+        url = url_template.format(nsd=row['nsd'])
         driver.get(url)
 
         company_quarter_data = []
 
         # Scrape financial data
-        for i, (cmbGrupo, cmbQuadro) in enumerate(settings.findata):
-            df = scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter)
+        for j, (cmbGrupo, cmbQuadro) in enumerate(settings.findata):
+            df = scrape_financial_data(driver, driver_wait, cmbGrupo, cmbQuadro, row['quarter'])
             if df is not None:
-                company_quarter_data.append((row['nsd'], row['company_name'], quarter, row['setor'], row['subsetor'], row['segmento'], row['version'], cmbGrupo, cmbQuadro, df))
+                company_quarter_data.append((row['nsd'], row['company'], row['quarter'], row['setor'], row['subsetor'], row['segmento'], row['version'], cmbGrupo, cmbQuadro, df))
 
         # Scrape capital data
-        for i, (cmbGrupo, cmbQuadro) in enumerate(settings.fincapital):
-            df = scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, quarter)
+        for j, (cmbGrupo, cmbQuadro) in enumerate(settings.fincapital):
+            df = scrape_capital_data(driver, driver_wait, cmbGrupo, cmbQuadro, row['quarter'])
             if df is not None:
-                company_quarter_data.append((row['nsd'], row['company_name'], quarter, row['setor'], row['subsetor'], row['segmento'], row['version'], cmbGrupo, cmbQuadro, df))
+                company_quarter_data.append((row['nsd'], row['company'], row['quarter'], row['setor'], row['subsetor'], row['segmento'], row['version'], cmbGrupo, cmbQuadro, df))
 
         # Prepare data for saving
         for nsd, company_name, quarter, setor, subsetor, segmento, version, cmbGrupo, cmbQuadro, df in company_quarter_data:
@@ -428,15 +472,16 @@ def finsheet_scrape(driver, driver_wait, df_nsd):
             all_data.append(df)
 
         # Save data in batches
-        if (counter + 1) % int(settings.batch_size/10) == 0 or counter == size_nsd - 1:
+        if (size_nsd - i - 1) % int(settings.batch_size) == 0:
             finsheet = pd.concat(all_data, ignore_index=True)
-            columns = ['nsd', 'tipo', 'setor', 'subsetor', 'segmento', 'company_name', 'quadro', 'quarter', 'conta', 'descricao', 'valor', 'version']
             finsheet = finsheet[columns]
-            finsheet = finsheet.sort_values(by=['conta', 'descricao'])
+            finsheet = finsheet.sort_values(by=sort_columns)
             save_to_db(finsheet)
             all_data.clear()
 
-    print('done')
+        extra_info_nsd = [row['nsd'], row['company'], row['quarter']]
+        system.print_info(i + 1, 0, size_nsd, extra_info_nsd, start_time_nsd, size_nsd)
+
     return finsheet
 
 def main_multiple(driver, driver_wait, batch_size=settings.big_batch_size, batch=1):
@@ -447,7 +492,7 @@ def main_multiple(driver, driver_wait, batch_size=settings.big_batch_size, batch
     - driver: The Selenium WebDriver instance.
     - driver_wait: The WebDriverWait instance.
     - batch_size (int): Size of each batch to process.
-    - batch (int): Batch number to start processing from.
+v    - batch (int): Batch number to start processing from.
     """
     # Retrieve NSD data based on criteria
     df_nsd = get_nsd_data(settings.finsheet_types)
@@ -463,7 +508,7 @@ def main_multiple(driver, driver_wait, batch_size=settings.big_batch_size, batch
             if not df_nsd_batch.empty:
                 finsheet_scrape(driver, driver_wait, df_nsd_batch)
 
-def main(driver, driver_wait, batch_size=settings.big_batch_size, batch=1):
+def main(driver, driver_wait, batch_size=settings.big_batch_size, batch=None):
     """
     Main function to scrape NSD data in batches.
 
@@ -473,9 +518,19 @@ def main(driver, driver_wait, batch_size=settings.big_batch_size, batch=1):
     - batch_size (int): Size of each batch to process.
     - batch (int): Batch number to start processing from.
     """
-    # Retrieve NSD data based on criteria
     df_nsd = get_nsd_data(settings.finsheet_types)
+    batch_size=int(len(df_nsd)/settings.num_batches)
+
     if not df_nsd.empty:
-        finsheet_scrape(driver, driver_wait, df_nsd)
+        if batch is None:
+            # Retrieve NSD data based on criteria
+                finsheet_scrape(driver, driver_wait, df_nsd)
+        else:
+            # Retrieve NSD data based on criteria and batch
+            start_idx = batch * batch_size
+            end_idx = start_idx + batch_size
+            df_nsd_batch = df_nsd[start_idx:end_idx]
+            finsheet_scrape(driver, driver_wait, df_nsd_batch)
+
 if __name__ == "__main__":
     print('this is a module. done!')

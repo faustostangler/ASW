@@ -87,8 +87,6 @@ def get_raw_code(driver, driver_wait, url=settings.companies_url):
         raw_code = []
         start_time = time.time()
         for i, page in enumerate(range(0, pages + 1)):
-            if i >= 23:
-                pass
             xpath = '//*[@id="nav-bloco"]/div'
             system.wait_forever(driver_wait, xpath)
             inner_html = system.raw_text(xpath, driver_wait)
@@ -351,6 +349,14 @@ def get_company_info(driver, driver_wait, company_tickers):
     save_to_db(all_data, settings.db_name)
     print('Final save completed...')
     return all_company_info
+
+def main(driver, driver_wait):
+    # Scrape company information
+    raw_code = get_raw_code(driver, driver_wait, settings.companies_url)
+    company_tickers = get_company_ticker(raw_code)
+    company_info = get_company_info(driver, driver_wait, company_tickers)
+
+    return company_info
 
 if __name__ == "__main__":
     # # Initialize Selenium WebDriver
